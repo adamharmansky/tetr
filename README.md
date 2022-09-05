@@ -1,6 +1,6 @@
 # tetr::
 
-A ✨__**modern**__✨ Tetris game made in *OpenGL* and *Rust*
+A ✨*modern*✨ Tetris game made in *OpenGL* and *Rust*
 
 ## Gameplay
 
@@ -30,6 +30,13 @@ The game provides the following features (this is a TODO list):
  * [ ] Split screen mode for `n` players
  * [ ] Settings screen
  * [ ] Online multiplayer
+
+## Why another tetris game?
+
+ * [tetr.io](https://tetr.io) has ads
+ * tetr.io lacks split-screen multiplayer
+ * tetr.io is a web game, which impacts the performance and user experience
+ * I wanted to have a take at implementing Tetris, as there is a surprising amount of technical challenges involved
 
 ## Playing the game
 
