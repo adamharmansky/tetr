@@ -52,7 +52,7 @@ impl KeyBinds {
                 (glutin::event::VirtualKeyCode::Up, Key::RotateCW),
                 (glutin::event::VirtualKeyCode::RControl, Key::RotateCCW),
                 (glutin::event::VirtualKeyCode::Down, Key::SoftDrop),
-                (glutin::event::VirtualKeyCode::Slash, Key::HardDrop),
+                (glutin::event::VirtualKeyCode::Return, Key::HardDrop),
                 (glutin::event::VirtualKeyCode::RShift, Key::Swap),
             ]),
         }
