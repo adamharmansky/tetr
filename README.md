@@ -4,7 +4,7 @@ A ✨*modern*✨ Tetris game made in *OpenGL* and *Rust*
 
 ## Gameplay
 
-**TODO**: add gameplay gif when the game looks somewhat good
+![](gameplay.gif)
 
 `tetr::` is an implementaion of **modern** Tetris, and essentially a clone of [tetr.io](https://tetr.io). This means:
 
