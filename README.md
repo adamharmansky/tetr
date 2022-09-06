@@ -9,7 +9,7 @@ A ✨*modern*✨ Tetris game made in *OpenGL* and *Rust*
 `tetr::` is an implementaion of **modern** Tetris, and essentially a clone of [tetr.io](https://tetr.io). This means:
 
  * the game provides a [hold slot](https://tetris.wiki/Hold_piece)
- * the game previews 5 next pieces and uses a [7-bag generator](https://tetris.wiki/Random_Generator) for improved gae stability
+ * the game previews 5 next pieces and uses a [7-bag generator](https://tetris.wiki/Random_Generator) for improved game stability
  * the games uses the [super rotation system](https://tetris.wiki/Super_Rotation_System) allowing for some cool tricks
  * you should use [hard drop](https://tetris.wiki/Drop#Hard_drop) for eveything
  * there is a [ghost piece](https://tetris.wiki/Ghost_piece) previewing where the block will fall
