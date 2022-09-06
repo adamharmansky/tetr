@@ -107,6 +107,12 @@ impl SetAsUniform for Mat4 {
     }
 }
 
+impl SetAsUniform for bool {
+    unsafe fn set_as_uniform(&self, gl: &Rc<GlFns>, id: u32) {
+        gl.Uniform1i(id as _, (*self) as _);
+    }
+}
+
 fn create_shader(gl: &Rc<GlFns>, code: &str, t: gl33::ShaderType) -> Option<u32> {
     let s = gl.CreateShader(t);
     if s == 0 {

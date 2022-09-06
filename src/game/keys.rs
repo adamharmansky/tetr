@@ -47,13 +47,13 @@ impl KeyBinds {
     pub fn right() -> Self {
         Self {
             keys: HashMap::from([
-                (glutin::event::VirtualKeyCode::Left, Key::Left),
-                (glutin::event::VirtualKeyCode::Right, Key::Right),
-                (glutin::event::VirtualKeyCode::Up, Key::RotateCW),
-                (glutin::event::VirtualKeyCode::RControl, Key::RotateCCW),
-                (glutin::event::VirtualKeyCode::Down, Key::SoftDrop),
-                (glutin::event::VirtualKeyCode::Return, Key::HardDrop),
-                (glutin::event::VirtualKeyCode::RShift, Key::Swap),
+                (glutin::event::VirtualKeyCode::Numpad1, Key::Left),
+                (glutin::event::VirtualKeyCode::Numpad3, Key::Right),
+                (glutin::event::VirtualKeyCode::Numpad5, Key::RotateCW),
+                (glutin::event::VirtualKeyCode::NumpadComma, Key::RotateCCW),
+                (glutin::event::VirtualKeyCode::Numpad2, Key::SoftDrop),
+                (glutin::event::VirtualKeyCode::Numpad0, Key::HardDrop),
+                (glutin::event::VirtualKeyCode::NumpadEnter, Key::Swap),
             ]),
         }
     }

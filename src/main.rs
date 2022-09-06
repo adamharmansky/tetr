@@ -1,9 +1,11 @@
 mod graphics;
 
+mod background;
 mod game;
 mod menu;
-use game::Game;
+mod util;
 
+use game::Game;
 use std::rc::Rc;
 
 use glutin::{
@@ -12,20 +14,7 @@ use glutin::{
     window::WindowBuilder,
 };
 
-enum Screen {
-    Menu,
-    SingleGame,
-    DoubleGame,
-}
-
-trait Playable {
-    fn update(&mut self);
-    fn draw(&mut self, screen_width: i32, screen_height: i32);
-    fn input(&mut self, event: glutin::event::KeyboardInput);
-    fn next_screen(&mut self) -> Option<Screen> {
-        None
-    }
-}
+use util::*;
 
 fn main() {
     let evloop = EventLoop::new();
@@ -38,6 +27,7 @@ fn main() {
     let context = glutin::ContextBuilder::new()
         .with_gl(glutin::GlRequest::Specific(glutin::Api::OpenGl, (3, 3)))
         .with_vsync(true)
+        .with_multisampling(4)
         .build_windowed(builder, &evloop)
         .expect("Couldn't create context!");
     let context = unsafe { context.make_current().unwrap() };
@@ -58,6 +48,7 @@ fn main() {
         gl.BlendFunc(gl33::GL_SRC_ALPHA, gl33::GL_ONE_MINUS_SRC_ALPHA);
     }
 
+    let mut background = background::Background::new(gl.clone());
     let mut screen: Box<dyn Playable> = Box::new(menu::Menu::new(gl.clone()));
 
     evloop.run(move |ev, _, control_flow| {
@@ -72,15 +63,14 @@ fn main() {
             Event::MainEventsCleared => unsafe {
                 screen.update();
 
-                gl.ClearColor(0.0, 0.0, 0.0, 1.0);
-                gl.Clear(gl33::GL_COLOR_BUFFER_BIT | gl33::GL_DEPTH_BUFFER_BIT);
-
                 let winsize = context.window().inner_size();
                 gl.Viewport(0, 0, winsize.width as _, winsize.height as _);
 
+                background.draw(winsize.width as _, winsize.height as _);
                 screen.draw(winsize.width as _, winsize.height as _);
 
                 if let Some(x) = screen.next_screen() {
+                    background.change_wallpaper();
                     screen = match x {
                         Screen::Menu => Box::new(menu::Menu::new(gl.clone())),
                         Screen::SingleGame => Box::new(Game::single(gl.clone())),

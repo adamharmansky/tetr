@@ -40,13 +40,22 @@ The game provides the following features (this is a TODO list):
 
 ## Playing the game
 
-To build and launch the game, make sure you have *the Rust programming language* installed and type:
+To build and launch the game, make sure you have [the Rust programming language](https://www.rust-lang.org/) installed and type:
 
 ```sh
 cargo run -r
 ```
 
-To compile the game only, use `cargo build -r`. The game should be contained in a single portable executable, located in `target/release/`
+To compile the game only, use `cargo build -r`. The game should be contained in a single executable, located in `target/release/`
+
+### Backgrounds
+
+The game looks for a `backgrounds` folder in its working directory, so make
+sure that you are in the root directory of the game (where this README file is
+located), or you have the backgrounds directory copied to your CWD. **TODO**:
+add option to install the directory somewhere else.
+
+All of the backgrounds are taken from [DT's wallpaper collection](https://gitlab.com/dwt1/wallpapers), which uses pictures from [unsplash](https://unsplash.com/).
 
 ### Keybinds
 
@@ -56,14 +65,20 @@ The two-player keybinds are as follows:
 
 #### Left player
 
- * WASD - rotate CW, soft drop, left, right
- * LShift - swap
- * LCtrl - rotate CCW
- * Space - hard drop
+ * A - Left
+ * D - Right
+ * W - RotateCW
+ * LCtrl - RotateCCW
+ * S - SoftDrop
+ * Space - HardDrop
+ * LShift - Swap
 
 #### Right player
 
- * Up, Down, Left, Right - rotate CW, soft drop, left, right
- * RShift - swap
- * RCtrl - rotate CCW
- * Return - hard drop
+ * Numpad1 - Left
+ * Numpad3 - Right
+ * Numpad5 - RotateCW
+ * NumpadComma - RotateCCW
+ * Numpad2 - SoftDrop
+ * Numpad0 - HardDrop
+ * NumpadEnter - Swap

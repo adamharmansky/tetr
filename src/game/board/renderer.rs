@@ -1,6 +1,6 @@
 use super::*;
 use crate::graphics;
-use glam::Vec2;
+use glam::{Vec2, Vec4};
 use graphics::Transformer;
 
 /// The renderer renders the playing field, it contains the sahders, textures, models, ...
@@ -12,15 +12,18 @@ pub struct Renderer {
     block_transform: graphics::Transformer,
     block_opacity: graphics::UniformHandle,
 
-    board_shader: Rc<graphics::Shader>,
     board_model: graphics::Model,
     board_texture: graphics::Texture,
-    board_transform: graphics::Transformer,
-    board_opacity: graphics::UniformHandle,
 
-    meter_shader: Rc<graphics::Shader>,
-    meter_transform: graphics::Transformer,
-    meter_opacity: graphics::UniformHandle,
+    misc_shader: Rc<graphics::Shader>,
+    misc_transform: graphics::Transformer,
+    misc_color: graphics::UniformHandle,
+    texture_enable: graphics::UniformHandle,
+
+    particle_model: graphics::Model,
+    star_model: graphics::Model,
+
+    star_texture: graphics::Texture,
 }
 
 impl Renderer {
@@ -59,14 +62,51 @@ impl Renderer {
         )
         .unwrap();
 
-        let board_shader = Rc::new(
+        let star_model = graphics::Model::new(
+            gl.clone(),
+            &[
+                (-1.0, -1.0, 0.0),
+                (1.0, -1.0, 0.0),
+                (-1.0, 1.0, 0.0),
+                (1.0, -1.0, 0.0),
+                (1.0, 1.0, 0.0),
+                (-1.0, 1.0, 0.0),
+            ],
+            &[
+                (0.0, 1.0),
+                (1.0, 1.0),
+                (0.0, 0.0),
+                (1.0, 1.0),
+                (1.0, 0.0),
+                (0.0, 0.0),
+            ],
+            &[(0.0, 0.0, -1.0); 6],
+        )
+        .unwrap();
+
+        let misc_shader = Rc::new(
             graphics::Shader::new(
                 gl.clone(),
                 include_str!("../../shaders/default.vert"),
-                include_str!("../../shaders/board.frag"),
+                include_str!("../../shaders/texture_optional.frag"),
             )
             .expect("couldn't compile shader"),
         );
+
+        let block_transform = Transformer::new(block_shader.clone());
+        let block_opacity = graphics::UniformHandle::new(block_shader.clone(), "opacity");
+        let misc_transform = Transformer::new(misc_shader.clone());
+        let misc_color = graphics::UniformHandle::new(misc_shader.clone(), "kolor");
+        let texture_enable = graphics::UniformHandle::new(misc_shader.clone(), "enable_texture");
+
+        let particle_model = graphics::Model::new(
+            gl.clone(),
+            &[(-1.0, -1.0, 0.0), (0.0, 0.732, 0.0), (1.0, -1.0, 0.0)],
+            &[],
+            &[],
+        )
+        .unwrap();
+
         let board_texture =
             graphics::Texture::load(gl.clone(), include_bytes!("../../assets/board.png")).unwrap();
         let board_model = graphics::Model::new(
@@ -87,41 +127,29 @@ impl Renderer {
                 (1.0, 0.0),
                 (0.0, 0.0),
             ],
-            &[(0.0, 0.0, -1.0); 6],
+            &[],
         )
         .unwrap();
 
-        let meter_shader = Rc::new(
-            graphics::Shader::new(
-                gl.clone(),
-                include_str!("../../shaders/default.vert"),
-                include_str!("../../shaders/meter.frag"),
-            )
-            .expect("couldn't compile shader"),
-        );
-
-        let board_transform = Transformer::new(board_shader.clone());
-        let board_opacity = graphics::UniformHandle::new(board_shader.clone(), "opacity");
-        let block_transform = Transformer::new(block_shader.clone());
-        let block_opacity = graphics::UniformHandle::new(block_shader.clone(), "opacity");
-        let meter_transform = Transformer::new(meter_shader.clone());
-        let meter_opacity = graphics::UniformHandle::new(meter_shader.clone(), "opacity");
+        let star_texture =
+            graphics::Texture::load(gl.clone(), include_bytes!("../../assets/star.png")).unwrap();
 
         Self {
             block_shader,
             block_color,
             block_model,
             block_texture,
-            board_shader,
             board_model,
             board_texture,
-            meter_shader,
+            misc_shader,
             block_transform,
             block_opacity,
-            board_transform,
-            board_opacity,
-            meter_transform,
-            meter_opacity,
+            misc_transform,
+            misc_color,
+            particle_model,
+            texture_enable,
+            star_model,
+            star_texture,
         }
     }
 
@@ -148,26 +176,28 @@ impl Renderer {
             0.0,
         ));
 
+        self.misc_shader.bind();
+
         // draw the meter of pieces to be added
-        self.meter_shader.bind();
-        self.meter_opacity.set(opacity);
-        self.meter_transform.set(position);
-        self.meter_transform
-            .transform(Mat4::from_translation(Vec3::new(-0.95, 0.05, 0.0)));
+        self.texture_enable.set(false);
+        self.misc_color.set(glam::Vec4::new(1.0, 0.0, 0.0, opacity));
+        self.misc_transform.set(position);
+        self.misc_transform
+            .transform(Mat4::from_translation(Vec3::new(-1.0, 0.05, 0.0)));
         for i in &board.lines_received {
-            self.meter_transform.push();
-            self.meter_transform
-                .transform(Mat4::from_scale(Vec3::new(0.9, *i as f32 - 0.1, 0.9)));
+            self.misc_transform.push();
+            self.misc_transform
+                .transform(Mat4::from_scale(Vec3::new(1.0, *i as f32 - 0.1, 0.9)));
             self.block_model.render();
-            self.meter_transform.pop();
-            self.meter_transform
+            self.misc_transform.pop();
+            self.misc_transform
                 .transform(Mat4::from_translation(Vec3::new(0.0, *i as f32, 0.0)));
         }
 
         // draw the board
-        self.board_shader.bind();
-        self.board_opacity.set(opacity);
-        self.board_transform.set(position);
+        self.misc_color.set(Vec4::new(1.0, 1.0, 1.0, opacity));
+        self.texture_enable.set(true);
+        self.misc_transform.set(position);
         self.board_texture.bind();
         self.board_model.render();
 
@@ -233,6 +263,35 @@ impl Renderer {
                 .transform(Mat4::from_translation(Vec3::new(-2.5, 17.5, 0.0)));
             self.draw_shape(x, board.swapped);
             self.block_transform.pop();
+        }
+
+        // draw the particles
+        self.misc_shader.bind();
+        self.misc_transform.set(position);
+        for i in &board.effects.particles {
+            self.misc_transform.push();
+            self.misc_transform
+                .transform(Mat4::from_translation(Vec3::new(
+                    i.position.x,
+                    i.position.y,
+                    0.0,
+                )));
+            self.misc_transform
+                .transform(Mat4::from_scale(Vec3::new(i.size, i.size, 1.0)));
+            match i.model {
+                effects::ParticleModel::Colorful(color) => {
+                    self.misc_color.set(color);
+                    self.texture_enable.set(false);
+                    self.particle_model.render();
+                }
+                effects::ParticleModel::Star => {
+                    self.misc_color.set(Vec4::new(1.0, 1.0, 1.0, 1.0));
+                    self.texture_enable.set(true);
+                    self.star_texture.bind();
+                    self.star_model.render();
+                }
+            }
+            self.misc_transform.pop();
         }
     }
 

@@ -14,15 +14,7 @@ impl Drop for Texture {
 }
 
 impl Texture {
-    pub fn load(gl: Rc<GlFns>, data: &[u8]) -> Result<Self, String> {
-        let cursor = std::io::Cursor::new(data);
-        let img = image::io::Reader::new(cursor)
-            .with_guessed_format()
-            .ok()
-            .ok_or(String::from("wrong file format"))?
-            .decode()
-            .ok()
-            .ok_or(String::from("unable to load image"))?;
+    pub fn from_image(gl: Rc<GlFns>, img: image::DynamicImage) -> Result<Self, String> {
         let mut id = 0u32;
         unsafe {
             gl.GenTextures(1, &mut id as _);
@@ -37,6 +29,7 @@ impl Texture {
                 gl33::GL_TEXTURE_MAG_FILTER,
                 gl33::GL_LINEAR.0 as _,
             );
+            let img = img.into_rgba8();
             gl.TexImage2D(
                 gl33::GL_TEXTURE_2D,
                 0,
@@ -44,19 +37,25 @@ impl Texture {
                 img.width() as _,
                 img.height() as _,
                 0,
-                match img {
-                    image::DynamicImage::ImageLuma8(_) => gl33::GL_RED,
-                    image::DynamicImage::ImageLumaA8(_) => gl33::GL_RG,
-                    image::DynamicImage::ImageRgb8(_) => gl33::GL_RGB,
-                    image::DynamicImage::ImageRgba8(_) => gl33::GL_RGBA,
-                    _ => return Err(String::from("Wrong color format")),
-                },
+                gl33::GL_RGBA,
                 gl33::GL_UNSIGNED_BYTE,
-                img.as_bytes().as_ptr() as _,
+                img.as_ptr() as _,
             );
             gl.GenerateMipmap(gl33::GL_TEXTURE_2D);
         }
         Ok(Self { gl, id })
+    }
+
+    pub fn load(gl: Rc<GlFns>, data: &[u8]) -> Result<Self, String> {
+        let cursor = std::io::Cursor::new(data);
+        let img = image::io::Reader::new(cursor)
+            .with_guessed_format()
+            .ok()
+            .ok_or(String::from("wrong file format"))?
+            .decode()
+            .ok()
+            .ok_or(String::from("unable to load image"))?;
+        Self::from_image(gl, img)
     }
 
     pub fn bind(&self) {

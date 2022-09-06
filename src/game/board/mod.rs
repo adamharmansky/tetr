@@ -80,6 +80,7 @@ impl Board {
         &mut self,
         keys: &mut std::collections::HashMap<glutin::event::VirtualKeyCode, KeyTiming>,
     ) {
+        self.effects.update();
         // exit immediately if we are dead
         if let Some(_) = self.death_time {
             return;
@@ -111,8 +112,6 @@ impl Board {
         {
             self.land_piece();
         }
-
-        self.effects.update();
     }
 
     fn handle_input(
@@ -222,6 +221,7 @@ impl Board {
     fn hard_drop(&mut self) {
         self.effects.velocity.y -= 0.15;
         loop {
+            self.hard_drop_fly_particles();
             if self
                 .falling_piece
                 .translate(BlockPos::new(0, -1), &self.blocks)
@@ -230,6 +230,31 @@ impl Board {
             }
         }
         self.land_piece();
+    }
+
+    fn hard_drop_fly_particles(&mut self) {
+        let shape = self.falling_piece.get_shape();
+        for x in 0..4 {
+            for y in 0..4 {
+                if let Block::Block { .. } = shape[x][y] {
+                    if rand::random::<u32>() % 10 == 0 {
+                        self.effects.particles.push(effects::Particle::new(
+                            glam::Vec2::new(
+                                (self.falling_piece.position.x + x as i32) as f32
+                                    + rand::random::<f32>(),
+                                (self.falling_piece.position.y + y as i32) as f32
+                                    + rand::random::<f32>(),
+                            ),
+                            glam::Vec2::new(0.0, 0.1 * rand::random::<f32>()),
+                            glam::Vec2::new(0.0, 0.01),
+                            0.2 * rand::random::<f32>(),
+                            0.005,
+                            effects::ParticleModel::random_color(),
+                        ));
+                    }
+                }
+            }
+        }
     }
 
     fn swap(&mut self) {
@@ -270,6 +295,7 @@ impl Board {
         }
 
         self.land_aftermath(self.falling_piece.position.y, outside, covered);
+        self.land_particles();
 
         // draw a new piece and reset everything
         self.falling_piece = Tetromino::new(self.piece_generator.next_piece());
@@ -299,7 +325,7 @@ impl Board {
                 }
             }
             lines_cleared += 1;
-            self.remove_lines(y as _);
+            self.remove_line(y as _);
             piece_position -= 1;
             blocks_outside_board -= 1;
         }
@@ -336,6 +362,29 @@ impl Board {
         }
     }
 
+    fn land_particles(&mut self) {
+        let shape = self.falling_piece.get_shape();
+        for x in 0..4 {
+            for y in 0..4 {
+                if let Block::Block { .. } = shape[x][y] {
+                    self.effects.particles.push(effects::Particle::new(
+                        glam::Vec2::new(
+                            (self.falling_piece.position.x + x as i32) as f32
+                                + rand::random::<f32>(),
+                            (self.falling_piece.position.y + y as i32) as f32
+                                + rand::random::<f32>(),
+                        ),
+                        glam::Vec2::new(0.0, 0.0),
+                        glam::Vec2::new(0.0, 0.001),
+                        0.3 * rand::random::<f32>(),
+                        0.005,
+                        effects::ParticleModel::Star,
+                    ));
+                }
+            }
+        }
+    }
+
     fn test_ground(&mut self) {
         let old_ground = self.on_ground;
         self.on_ground = self.test_translation(BlockPos::new(0, -1));
@@ -368,8 +417,9 @@ impl Board {
         {}
     }
 
-    /// Remove n lines
-    fn remove_lines(&mut self, n: usize) {
+    /// Remove line n
+    fn remove_line(&mut self, n: usize) {
+        self.line_clear_particles(n);
         // The row should be full if the loop passed through everything
         let mut boks = Box::new([Block::Air; 10]);
         for i in n..30 {
@@ -379,6 +429,22 @@ impl Board {
         }
         std::mem::swap(&mut self.blocks[31], &mut boks);
         std::mem::swap(&mut self.blocks[30], &mut boks);
+    }
+
+    fn line_clear_particles(&mut self, y: usize) {
+        for x in 0..10 {
+            self.effects.particles.push(effects::Particle::new(
+                glam::Vec2::new(
+                    x as f32 + rand::random::<f32>(),
+                    y as f32 + rand::random::<f32>(),
+                ),
+                glam::Vec2::new(0.0, 0.0),
+                glam::Vec2::new(0.0, 0.0005),
+                0.4 * rand::random::<f32>(),
+                0.005,
+                effects::ParticleModel::Star,
+            ));
+        }
     }
 
     /// Insert n lines of "cheese" at the bottom of the game
