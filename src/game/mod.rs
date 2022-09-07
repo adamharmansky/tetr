@@ -3,6 +3,7 @@ use glam::Vec3;
 use rand::prelude::*;
 use std::rc::Rc;
 
+mod background;
 mod block;
 mod board;
 mod keys;
@@ -31,23 +32,25 @@ pub struct Game {
     renderer: board::Renderer,
     keys_pressed: std::collections::HashMap<glutin::event::VirtualKeyCode, KeyTiming>,
     exiting: bool,
+    background: background::Background,
 }
 
 impl Game {
-    pub fn single(gl: Rc<gl33::GlFns>) -> Self {
+    pub fn single(gl: Rc<gl33::GlFns>, roman: &crate::resource::ResourceManager) -> Self {
         let rng = SmallRng::from_entropy();
         Self {
-            renderer: board::Renderer::new(gl),
+            renderer: board::Renderer::new(gl.clone(), roman),
             boards: vec![Rc::new(RefCell::new(Board::new(
                 keys::KeyBinds::single(),
                 rng,
             )))],
             keys_pressed: std::collections::HashMap::new(),
             exiting: false,
+            background: background::Background::new(gl.clone(), roman),
         }
     }
 
-    pub fn double(gl: Rc<gl33::GlFns>) -> Self {
+    pub fn double(gl: Rc<gl33::GlFns>, roman: &crate::resource::ResourceManager) -> Self {
         let rng = SmallRng::from_entropy();
         let left = Rc::new(RefCell::new(Board::new(
             keys::KeyBinds::left(),
@@ -59,10 +62,11 @@ impl Game {
             right.borrow_mut().victim = Some(left.clone());
         }
         Self {
-            renderer: board::Renderer::new(gl),
+            renderer: board::Renderer::new(gl.clone(), roman),
             boards: vec![left, right],
             keys_pressed: std::collections::HashMap::new(),
             exiting: false,
+            background: background::Background::new(gl.clone(), roman),
         }
     }
 }
@@ -72,6 +76,8 @@ impl crate::Playable for Game {
         let aspect = screen_width as f32 / screen_height as f32;
         let mat = Mat4::from_scale(Vec3::new(1.0 / aspect, 1.0, 1.0))
             * Mat4::from_scale(Vec3::new(0.75, 0.75, 0.75));
+
+        self.background.draw(screen_width, screen_height);
 
         for i in 0..self.boards.len() {
             let mat =

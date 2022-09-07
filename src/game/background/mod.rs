@@ -1,5 +1,6 @@
-use super::*;
+use crate::graphics;
 use glam::{Mat4, Vec2, Vec3, Vec4};
+use std::rc::Rc;
 
 struct Triangle {
     position: Vec2,
@@ -25,7 +26,6 @@ pub struct Background {
     color_uniform: graphics::UniformHandle,
     triangle: graphics::Model,
     triangles: Vec<Triangle>,
-    gl: Rc<gl33::GlFns>,
 
     background: graphics::Texture,
     background_shader: Rc<graphics::Shader>,
@@ -36,14 +36,12 @@ pub struct Background {
 }
 
 impl Background {
-    pub fn new(gl: Rc<gl33::GlFns>) -> Self {
+    pub fn new(gl: Rc<gl33::GlFns>, roman: &crate::resource::ResourceManager) -> Self {
+        let vert = roman.get_text("default.vert");
+        let frag = roman.get_text("solid_color.frag");
         let shader = Rc::new(
-            graphics::Shader::new(
-                gl.clone(),
-                include_str!("../shaders/default.vert"),
-                include_str!("../shaders/solid_color.frag"),
-            )
-            .expect("couldn't compile background shader"),
+            graphics::Shader::new(gl.clone(), &vert, &frag)
+                .expect("couldn't compile background shader"),
         );
         let transform = graphics::Transformer::new(shader.clone());
         let color_uniform = graphics::UniformHandle::new(shader.clone(), "kolor");
@@ -59,17 +57,14 @@ impl Background {
             triangles.push(Triangle::new());
         }
 
-        let background = Self::pick_wapllpaper();
+        let background = Self::pick_wapllpaper(roman);
         let background_aspect = background.width() as f32 / background.height() as f32;
-        let background = graphics::Texture::from_image(gl.clone(), background).unwrap();
+        let background = graphics::Texture::from_image(gl.clone(), &background).unwrap();
 
+        let frag = roman.get_text("texture.frag");
         let background_shader = Rc::new(
-            graphics::Shader::new(
-                gl.clone(),
-                include_str!("../shaders/default.vert"),
-                include_str!("../shaders/texture.frag"),
-            )
-            .expect("couldn't compile background shader"),
+            graphics::Shader::new(gl.clone(), &vert, &frag)
+                .expect("couldn't compile background shader"),
         );
         let background_transform = graphics::Transformer::new(background_shader.clone());
         let background_model = graphics::Model::new(
@@ -101,7 +96,6 @@ impl Background {
             color_uniform,
             triangle,
             triangles,
-            gl,
             background,
             background_shader,
             background_transform,
@@ -135,12 +129,6 @@ impl Background {
 
     pub fn draw(&mut self, screen_width: i32, screen_height: i32) {
         let aspect = screen_width as f32 / screen_height as f32;
-
-        unsafe {
-            self.gl.ClearColor(0.0, 0.0, 0.0, 1.0);
-            self.gl
-                .Clear(gl33::GL_COLOR_BUFFER_BIT | gl33::GL_DEPTH_BUFFER_BIT);
-        }
 
         self.background_shader.bind();
         self.background_transform
@@ -186,15 +174,11 @@ impl Background {
         self.update();
     }
 
-    pub fn change_wallpaper(&mut self) {
-        let background = Self::pick_wapllpaper();
-        self.background_aspect = background.width() as f32 / background.height() as f32;
-        self.background = graphics::Texture::from_image(self.gl.clone(), background).unwrap();
-    }
-
-    fn pick_wapllpaper() -> image::DynamicImage {
+    fn pick_wapllpaper(
+        roman: &crate::resource::ResourceManager,
+    ) -> Rc<image::ImageBuffer<image::Rgba<u8>, Vec<u8>>> {
         let backgrounds_dir = "backgrounds";
-        let nobackgrounds = include_bytes!("../assets/no_background.png");
+        let nobackgrounds = roman.get_image("no_background.png");
         if let Ok(dir) = std::fs::read_dir(backgrounds_dir) {
             let files = dir
                 .map(|x| x.unwrap().file_name().into_string().unwrap())
@@ -206,24 +190,21 @@ impl Background {
                     files[rand::random::<usize>() % files.len()]
                 );
 
-                image::io::Reader::new(std::io::BufReader::new(std::fs::File::open(file).unwrap()))
+                Rc::new(
+                    image::io::Reader::new(std::io::BufReader::new(
+                        std::fs::File::open(file).unwrap(),
+                    ))
                     .with_guessed_format()
                     .expect("Unrecognized background file format!")
                     .decode()
                     .expect("unable to load background image")
+                    .into_rgba8(),
+                )
             } else {
-                image::io::Reader::new(std::io::Cursor::new(nobackgrounds))
-                    .with_guessed_format()
-                    .expect("Unrecognized background file format!")
-                    .decode()
-                    .unwrap()
+                nobackgrounds
             }
         } else {
-            image::io::Reader::new(std::io::Cursor::new(nobackgrounds))
-                .with_guessed_format()
-                .expect("Unrecognized background file format!")
-                .decode()
-                .unwrap()
+            nobackgrounds
         }
     }
 }

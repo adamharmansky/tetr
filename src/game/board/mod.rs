@@ -342,6 +342,7 @@ impl Board {
                 x -= lines_to_send;
                 lines_to_send = 0;
                 self.insert_cheese(x as _);
+                blocks_outside_board += x as i32;
                 self.effects.velocity.y += 0.1 * x as f32;
             } else {
                 lines_to_send -= x;

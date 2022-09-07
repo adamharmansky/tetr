@@ -1,8 +1,8 @@
 mod graphics;
 
-mod background;
 mod game;
 mod menu;
+mod resource;
 mod util;
 
 use game::Game;
@@ -48,8 +48,8 @@ fn main() {
         gl.BlendFunc(gl33::GL_SRC_ALPHA, gl33::GL_ONE_MINUS_SRC_ALPHA);
     }
 
-    let mut background = background::Background::new(gl.clone());
-    let mut screen: Box<dyn Playable> = Box::new(menu::Menu::new(gl.clone()));
+    let roman = resource::ResourceManager::new(String::from("resources")).unwrap();
+    let mut screen: Box<dyn Playable> = Box::new(menu::Menu::new(gl.clone(), &roman));
 
     evloop.run(move |ev, _, control_flow| {
         *control_flow = ControlFlow::Wait;
@@ -60,26 +60,28 @@ fn main() {
                 WindowEvent::KeyboardInput { input, .. } => screen.input(input),
                 _ => (),
             },
-            Event::MainEventsCleared => unsafe {
+            Event::MainEventsCleared => {
                 screen.update();
 
                 let winsize = context.window().inner_size();
-                gl.Viewport(0, 0, winsize.width as _, winsize.height as _);
+                unsafe {
+                    gl.Viewport(0, 0, winsize.width as _, winsize.height as _);
+                    gl.ClearColor(0.0, 0.0, 0.0, 1.0);
+                    gl.Clear(gl33::GL_COLOR_BUFFER_BIT | gl33::GL_DEPTH_BUFFER_BIT);
+                }
 
-                background.draw(winsize.width as _, winsize.height as _);
                 screen.draw(winsize.width as _, winsize.height as _);
 
                 if let Some(x) = screen.next_screen() {
-                    background.change_wallpaper();
                     screen = match x {
-                        Screen::Menu => Box::new(menu::Menu::new(gl.clone())),
-                        Screen::SingleGame => Box::new(Game::single(gl.clone())),
-                        Screen::DoubleGame => Box::new(Game::double(gl.clone())),
+                        Screen::Menu => Box::new(menu::Menu::new(gl.clone(), &roman)),
+                        Screen::SingleGame => Box::new(Game::single(gl.clone(), &roman)),
+                        Screen::DoubleGame => Box::new(Game::double(gl.clone(), &roman)),
                     };
                 }
 
                 context.swap_buffers().unwrap();
-            },
+            }
             _ => (),
         }
     });

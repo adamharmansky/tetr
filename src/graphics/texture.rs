@@ -14,7 +14,10 @@ impl Drop for Texture {
 }
 
 impl Texture {
-    pub fn from_image(gl: Rc<GlFns>, img: image::DynamicImage) -> Result<Self, String> {
+    pub fn from_image(
+        gl: Rc<GlFns>,
+        img: &image::ImageBuffer<image::Rgba<u8>, Vec<u8>>,
+    ) -> Result<Self, String> {
         let mut id = 0u32;
         unsafe {
             gl.GenTextures(1, &mut id as _);
@@ -29,7 +32,6 @@ impl Texture {
                 gl33::GL_TEXTURE_MAG_FILTER,
                 gl33::GL_LINEAR.0 as _,
             );
-            let img = img.into_rgba8();
             gl.TexImage2D(
                 gl33::GL_TEXTURE_2D,
                 0,
@@ -54,8 +56,9 @@ impl Texture {
             .ok_or(String::from("wrong file format"))?
             .decode()
             .ok()
-            .ok_or(String::from("unable to load image"))?;
-        Self::from_image(gl, img)
+            .ok_or(String::from("unable to load image"))?
+            .into_rgba8();
+        Self::from_image(gl, &img)
     }
 
     pub fn bind(&self) {

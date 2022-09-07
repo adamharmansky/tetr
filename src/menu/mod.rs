@@ -8,9 +8,13 @@ struct MenuItem {
 }
 
 impl MenuItem {
-    pub fn new(gl: Rc<gl33::GlFns>, texture: &[u8], target: Screen) -> Self {
+    pub fn new(
+        gl: Rc<gl33::GlFns>,
+        texture: &image::ImageBuffer<image::Rgba<u8>, Vec<u8>>,
+        target: Screen,
+    ) -> Self {
         Self {
-            texture: graphics::Texture::load(gl, texture).unwrap(),
+            texture: graphics::Texture::from_image(gl, texture).unwrap(),
             target,
             zoom: 1.0,
         }
@@ -27,15 +31,14 @@ pub struct Menu {
 }
 
 impl Menu {
-    pub fn new(gl: Rc<gl33::GlFns>) -> Self {
+    pub fn new(gl: Rc<gl33::GlFns>, roman: &crate::resource::ResourceManager) -> Self {
+        let single = roman.get_image("single.png");
+        let double = roman.get_image("double.png");
+        let vert = roman.get_text("default.vert");
+        let frag = roman.get_text("menu.frag");
         Self {
             shader: Rc::new(
-                graphics::Shader::new(
-                    gl.clone(),
-                    include_str!("../shaders/default.vert"),
-                    include_str!("../shaders/menu.frag"),
-                )
-                .expect("couldn't compile shader!"),
+                graphics::Shader::new(gl.clone(), &vert, &frag).expect("couldn't compile shader!"),
             ),
             item_model: graphics::Model::new(
                 gl.clone(),
@@ -61,16 +64,8 @@ impl Menu {
             chosen: None,
             active_item: 0,
             items: vec![
-                MenuItem::new(
-                    gl.clone(),
-                    include_bytes!("../assets/single.png"),
-                    Screen::SingleGame,
-                ),
-                MenuItem::new(
-                    gl.clone(),
-                    include_bytes!("../assets/double.png"),
-                    Screen::DoubleGame,
-                ),
+                MenuItem::new(gl.clone(), &single, Screen::SingleGame),
+                MenuItem::new(gl.clone(), &double, Screen::DoubleGame),
             ],
             spring_position: 0.0,
         }

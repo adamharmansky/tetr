@@ -27,18 +27,27 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    pub fn new(gl: Rc<gl33::GlFns>) -> Self {
+    pub fn new(gl: Rc<gl33::GlFns>, roman: &crate::resource::ResourceManager) -> Self {
+        let default_vert = roman.get_text("default.vert");
+
+        let block_frag = roman.get_text("block.frag");
         let block_shader = Rc::new(
-            graphics::Shader::new(
-                gl.clone(),
-                include_str!("../../shaders/default.vert"),
-                include_str!("../../shaders/block.frag"),
-            )
-            .expect("couldn't compile shader"),
+            graphics::Shader::new(gl.clone(), &default_vert, &block_frag)
+                .expect("couldn't compile shader"),
         );
+
+        let misc_frag = roman.get_text("texture_optional.frag");
+        let misc_shader = Rc::new(
+            graphics::Shader::new(gl.clone(), &default_vert, &misc_frag)
+                .expect("couldn't compile shader"),
+        );
+
+        let block_transform = Transformer::new(block_shader.clone());
+        let block_opacity = graphics::UniformHandle::new(block_shader.clone(), "opacity");
         let block_color = graphics::UniformHandle::new(block_shader.clone(), "kolor");
-        let block_texture =
-            graphics::Texture::load(gl.clone(), include_bytes!("../../assets/block.png")).unwrap();
+        let misc_transform = Transformer::new(misc_shader.clone());
+        let misc_color = graphics::UniformHandle::new(misc_shader.clone(), "kolor");
+        let texture_enable = graphics::UniformHandle::new(misc_shader.clone(), "enable_texture");
 
         let block_model = graphics::Model::new(
             gl.clone(),
@@ -84,21 +93,6 @@ impl Renderer {
         )
         .unwrap();
 
-        let misc_shader = Rc::new(
-            graphics::Shader::new(
-                gl.clone(),
-                include_str!("../../shaders/default.vert"),
-                include_str!("../../shaders/texture_optional.frag"),
-            )
-            .expect("couldn't compile shader"),
-        );
-
-        let block_transform = Transformer::new(block_shader.clone());
-        let block_opacity = graphics::UniformHandle::new(block_shader.clone(), "opacity");
-        let misc_transform = Transformer::new(misc_shader.clone());
-        let misc_color = graphics::UniformHandle::new(misc_shader.clone(), "kolor");
-        let texture_enable = graphics::UniformHandle::new(misc_shader.clone(), "enable_texture");
-
         let particle_model = graphics::Model::new(
             gl.clone(),
             &[(-1.0, -1.0, 0.0), (0.0, 0.732, 0.0), (1.0, -1.0, 0.0)],
@@ -107,8 +101,6 @@ impl Renderer {
         )
         .unwrap();
 
-        let board_texture =
-            graphics::Texture::load(gl.clone(), include_bytes!("../../assets/board.png")).unwrap();
         let board_model = graphics::Model::new(
             gl.clone(),
             &[
@@ -131,8 +123,12 @@ impl Renderer {
         )
         .unwrap();
 
-        let star_texture =
-            graphics::Texture::load(gl.clone(), include_bytes!("../../assets/star.png")).unwrap();
+        let star_texture = roman.get_image("star.png");
+        let star_texture = graphics::Texture::from_image(gl.clone(), &star_texture).unwrap();
+        let block_texture = roman.get_image("block.png");
+        let block_texture = graphics::Texture::from_image(gl.clone(), &block_texture).unwrap();
+        let board_texture = roman.get_image("board.png");
+        let board_texture = graphics::Texture::from_image(gl.clone(), &board_texture).unwrap();
 
         Self {
             block_shader,

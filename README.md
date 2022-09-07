@@ -46,16 +46,16 @@ To build and launch the game, make sure you have [the Rust programming language]
 cargo run -r
 ```
 
-To compile the game only, use `cargo build -r`. The game should be contained in a single executable, located in `target/release/`
+To compile the game only, use `cargo build -r`. The executable of the game should be located in `target/release/`
+
+The game requires a `resources` directory in its CWD, so make sure are are cd'd
+into the root direcotry of the game (where this README file is located), or have
+it copied in your CWD.
 
 ### Backgrounds
 
-The game looks for a `backgrounds` folder in its working directory, so make
-sure that you are in the root directory of the game (where this README file is
-located), or you have the backgrounds directory copied to your CWD. **TODO**:
-add option to install the directory somewhere else.
-
-All of the backgrounds are taken from [DT's wallpaper collection](https://gitlab.com/dwt1/wallpapers), which uses pictures from [unsplash](https://unsplash.com/).
+The game also looks for a `backgrounds` folder in its working directory, from which it picks random wallpapers.
+All of the backgrounds are taken from [DT's wallpaper collection](https://gitlab.com/dwt1/wallpapers), which in turn uses pictures from [unsplash](https://unsplash.com/).
 
 ### Keybinds
 
