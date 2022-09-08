@@ -5,8 +5,8 @@ in vec2 frag_texcoords;
 in vec3 frag_normals;
 
 uniform sampler2D textur;
-uniform vec4 kolor;
+uniform vec4 color;
 
 void main() {
-    final_color = texture(textur, frag_texcoords) * kolor;
+    final_color = texture(textur, frag_texcoords) * color;
 }

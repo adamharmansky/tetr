@@ -1,5 +1,6 @@
 use crate::graphics;
 use glam::{Mat4, Vec2, Vec3, Vec4};
+use std::cell::RefCell;
 use std::rc::Rc;
 
 struct Triangle {
@@ -21,32 +22,29 @@ impl Triangle {
 }
 
 pub struct Background {
-    shader: Rc<graphics::Shader>,
-    transform: graphics::Transformer,
-    color_uniform: graphics::UniformHandle,
+    shader: Rc<RefCell<graphics::Shader>>,
     triangle: graphics::Model,
-    triangles: Vec<Triangle>,
 
     background: graphics::Texture,
-    background_shader: Rc<graphics::Shader>,
-    background_transform: graphics::Transformer,
+    background_shader: Rc<RefCell<graphics::Shader>>,
     background_model: graphics::Model,
-    background_color: graphics::UniformHandle,
     background_aspect: f32,
+
+    triangles: Vec<Triangle>,
 }
 
 impl Background {
-    pub fn new(gl: Rc<gl33::GlFns>, roman: &crate::resource::ResourceManager) -> Self {
+    pub fn new(
+        gh: &mut crate::graphics::GraphicsHandle,
+        roman: &crate::resource::ResourceManager,
+    ) -> Self {
         let vert = roman.get_text("default.vert");
         let frag = roman.get_text("solid_color.frag");
-        let shader = Rc::new(
-            graphics::Shader::new(gl.clone(), &vert, &frag)
-                .expect("couldn't compile background shader"),
-        );
-        let transform = graphics::Transformer::new(shader.clone());
-        let color_uniform = graphics::UniformHandle::new(shader.clone(), "kolor");
+        let shader = Rc::new(RefCell::new(
+            graphics::Shader::new(gh, &vert, &frag).expect("couldn't compile background shader"),
+        ));
         let triangle = graphics::Model::new(
-            gl.clone(),
+            gh,
             &[(-1.0, -1.0, 0.0), (0.0, 0.732, 0.0), (1.0, -1.0, 0.0)],
             &[],
             &[],
@@ -59,16 +57,14 @@ impl Background {
 
         let background = Self::pick_wapllpaper(roman);
         let background_aspect = background.width() as f32 / background.height() as f32;
-        let background = graphics::Texture::from_image(gl.clone(), &background).unwrap();
+        let background = graphics::Texture::from_image(gh, &background).unwrap();
 
         let frag = roman.get_text("texture.frag");
-        let background_shader = Rc::new(
-            graphics::Shader::new(gl.clone(), &vert, &frag)
-                .expect("couldn't compile background shader"),
-        );
-        let background_transform = graphics::Transformer::new(background_shader.clone());
+        let background_shader = Rc::new(RefCell::new(
+            graphics::Shader::new(gh, &vert, &frag).expect("couldn't compile background shader"),
+        ));
         let background_model = graphics::Model::new(
-            gl.clone(),
+            gh,
             &[
                 (0.0, 0.0, 0.0),
                 (background_aspect, 0.0, 0.0),
@@ -88,19 +84,14 @@ impl Background {
             &[],
         )
         .unwrap();
-        let background_color = graphics::UniformHandle::new(background_shader.clone(), "kolor");
 
         Self {
             shader,
-            transform,
-            color_uniform,
             triangle,
             triangles,
             background,
             background_shader,
-            background_transform,
             background_model,
-            background_color,
             background_aspect,
         }
     }
@@ -127,48 +118,44 @@ impl Background {
         }
     }
 
-    pub fn draw(&mut self, screen_width: i32, screen_height: i32) {
+    pub fn draw(
+        &mut self,
+        gh: &mut crate::graphics::GraphicsHandle,
+        screen_width: i32,
+        screen_height: i32,
+    ) {
         let aspect = screen_width as f32 / screen_height as f32;
 
-        self.background_shader.bind();
-        self.background_transform
-            .set(Mat4::from_scale(if aspect < 1.0 {
-                Vec3::new(1.0 / aspect, 1.0, 1.0)
-            } else {
-                Vec3::new(1.0, aspect, 1.0)
-            }));
-        self.background_transform
-            .transform(Mat4::from_translation(Vec3::new(
-                -self.background_aspect,
-                -1.0,
-                0.0,
-            )));
-        self.background_transform
-            .transform(Mat4::from_scale(Vec3::new(2.0, 2.0, 1.0)));
+        let mat = Mat4::from_scale(if aspect < 1.0 {
+            Vec3::new(1.0 / aspect, 1.0, 1.0)
+        } else {
+            Vec3::new(1.0, aspect, 1.0)
+        }) * Mat4::from_translation(Vec3::new(-self.background_aspect, -1.0, 0.0))
+            * Mat4::from_scale(Vec3::new(2.0, 2.0, 1.0));
 
-        self.background_color.set(Vec4::new(0.5, 0.5, 0.5, 1.0));
-        self.background.bind();
-        self.background_model.render();
+        {
+            gh.push_shader(self.background_shader.clone());
+            gh.set_uniform("color", Vec4::new(0.5, 0.5, 0.5, 1.0));
+            gh.set_uniform("view", mat);
+            self.background.bind(gh);
+            self.background_model.render(gh);
+            gh.pop_shader();
+        }
 
-        self.shader.bind();
-        self.transform
-            .set(Mat4::from_scale(Vec3::new(1.0, aspect * 1.0, 1.0)));
-        self.transform
-            .transform(Mat4::from_translation(Vec3::new(-1.5, -1.5, 0.0)));
-        self.transform
-            .transform(Mat4::from_scale(Vec3::new(3.0, 3.0, 3.0)));
-        for i in &self.triangles {
-            self.transform.push();
-            self.transform.transform(Mat4::from_translation(Vec3::new(
-                i.position.x,
-                i.position.y,
-                0.0,
-            )));
-            self.transform
-                .transform(Mat4::from_scale(Vec3::new(i.scale, i.scale, i.scale)));
-            self.color_uniform.set(i.color);
-            self.triangle.render();
-            self.transform.pop();
+        {
+            gh.push_shader(self.shader.clone());
+            let mat = Mat4::from_scale(Vec3::new(1.0, aspect * 1.0, 1.0))
+                * Mat4::from_translation(Vec3::new(-1.5, -1.5, 0.0))
+                * Mat4::from_scale(Vec3::new(3.0, 3.0, 3.0));
+            for i in &self.triangles {
+                let mat = mat
+                    * Mat4::from_translation(Vec3::new(i.position.x, i.position.y, 0.0))
+                    * Mat4::from_scale(Vec3::new(i.scale, i.scale, i.scale));
+                gh.set_uniform("view", mat);
+                gh.set_uniform("color", i.color);
+                self.triangle.render(gh);
+            }
+            gh.pop_shader();
         }
 
         self.update();

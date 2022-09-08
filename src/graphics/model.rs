@@ -22,7 +22,7 @@ impl Drop for Model {
 
 impl Model {
     pub fn new(
-        gl: Rc<GlFns>,
+        handle: &GraphicsHandle,
         vertices: &[(f32, f32, f32)],
         texcoords: &[(f32, f32)],
         normals: &[(f32, f32, f32)],
@@ -32,17 +32,17 @@ impl Model {
         let tex_vbo;
         let norm_vbo;
         unsafe {
-            gl.GenVertexArrays(1, &mut vao);
+            handle.gl.GenVertexArrays(1, &mut vao);
             if vao == 0 {
                 return None;
             };
-            gl.BindVertexArray(vao);
-            vert_vbo = gen_vbo(gl.clone(), vertices, 0, 3, false, gl33::GL_FLOAT)?;
-            tex_vbo = gen_vbo(gl.clone(), texcoords, 1, 2, false, gl33::GL_FLOAT)?;
-            norm_vbo = gen_vbo(gl.clone(), normals, 2, 3, false, gl33::GL_FLOAT)?;
+            handle.gl.BindVertexArray(vao);
+            vert_vbo = gen_vbo(handle, vertices, 0, 3, false, gl33::GL_FLOAT)?;
+            tex_vbo = gen_vbo(handle, texcoords, 1, 2, false, gl33::GL_FLOAT)?;
+            norm_vbo = gen_vbo(handle, normals, 2, 3, false, gl33::GL_FLOAT)?;
         }
         Some(Self {
-            gl,
+            gl: handle.gl.clone(),
             vao,
             vertices: vert_vbo,
             texcoords: tex_vbo,
@@ -51,16 +51,16 @@ impl Model {
         })
     }
 
-    pub fn render(&self) {
+    pub fn render(&self, handle: &GraphicsHandle) {
         unsafe {
-            self.gl.BindVertexArray(self.vao);
-            self.gl.DrawArrays(gl33::GL_TRIANGLES, 0, self.count as _);
+            handle.gl.BindVertexArray(self.vao);
+            handle.gl.DrawArrays(gl33::GL_TRIANGLES, 0, self.count as _);
         }
     }
 }
 
 unsafe fn gen_vbo<T>(
-    gl: Rc<GlFns>,
+    handle: &GraphicsHandle,
     data: &[T],
     index: u32,
     size: u32,
@@ -68,18 +68,18 @@ unsafe fn gen_vbo<T>(
     data_type: gl33::VertexAttribPointerType,
 ) -> Option<u32> {
     let mut vbo = 0u32;
-    gl.GenBuffers(1, &mut vbo);
+    handle.gl.GenBuffers(1, &mut vbo);
     if vbo == 0 {
         return None;
     };
-    gl.BindBuffer(gl33::GL_ARRAY_BUFFER, vbo);
-    gl.BufferData(
+    handle.gl.BindBuffer(gl33::GL_ARRAY_BUFFER, vbo);
+    handle.gl.BufferData(
         gl33::GL_ARRAY_BUFFER,
         (data.len() * std::mem::size_of::<T>()) as _,
         data.as_ptr() as _,
         gl33::GL_STATIC_DRAW,
     );
-    gl.VertexAttribPointer(
+    handle.gl.VertexAttribPointer(
         index,
         size as _,
         data_type,
@@ -87,6 +87,6 @@ unsafe fn gen_vbo<T>(
         std::mem::size_of::<T>() as _,
         0 as *const _,
     );
-    gl.EnableVertexAttribArray(index);
+    handle.gl.EnableVertexAttribArray(index);
     Some(vbo)
 }

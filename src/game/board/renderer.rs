@@ -1,56 +1,43 @@
 use super::*;
 use crate::graphics;
 use glam::{Vec2, Vec4};
-use graphics::Transformer;
 
 /// The renderer renders the playing field, it contains the sahders, textures, models, ...
 pub struct Renderer {
-    block_shader: Rc<graphics::Shader>,
-    block_color: graphics::UniformHandle,
+    block_shader: Rc<RefCell<graphics::Shader>>,
+    misc_shader: Rc<RefCell<graphics::Shader>>,
+
     block_model: graphics::Model,
     block_texture: graphics::Texture,
-    block_transform: graphics::Transformer,
-    block_opacity: graphics::UniformHandle,
 
     board_model: graphics::Model,
     board_texture: graphics::Texture,
 
-    misc_shader: Rc<graphics::Shader>,
-    misc_transform: graphics::Transformer,
-    misc_color: graphics::UniformHandle,
-    texture_enable: graphics::UniformHandle,
-
     particle_model: graphics::Model,
-    star_model: graphics::Model,
 
+    star_model: graphics::Model,
     star_texture: graphics::Texture,
 }
 
 impl Renderer {
-    pub fn new(gl: Rc<gl33::GlFns>, roman: &crate::resource::ResourceManager) -> Self {
+    pub fn new(
+        gh: &mut crate::graphics::GraphicsHandle,
+        roman: &crate::resource::ResourceManager,
+    ) -> Self {
         let default_vert = roman.get_text("default.vert");
 
         let block_frag = roman.get_text("block.frag");
-        let block_shader = Rc::new(
-            graphics::Shader::new(gl.clone(), &default_vert, &block_frag)
-                .expect("couldn't compile shader"),
-        );
+        let block_shader = Rc::new(RefCell::new(
+            graphics::Shader::new(gh, &default_vert, &block_frag).expect("couldn't compile shader"),
+        ));
 
         let misc_frag = roman.get_text("texture_optional.frag");
-        let misc_shader = Rc::new(
-            graphics::Shader::new(gl.clone(), &default_vert, &misc_frag)
-                .expect("couldn't compile shader"),
-        );
-
-        let block_transform = Transformer::new(block_shader.clone());
-        let block_opacity = graphics::UniformHandle::new(block_shader.clone(), "opacity");
-        let block_color = graphics::UniformHandle::new(block_shader.clone(), "kolor");
-        let misc_transform = Transformer::new(misc_shader.clone());
-        let misc_color = graphics::UniformHandle::new(misc_shader.clone(), "kolor");
-        let texture_enable = graphics::UniformHandle::new(misc_shader.clone(), "enable_texture");
+        let misc_shader = Rc::new(RefCell::new(
+            graphics::Shader::new(gh, &default_vert, &misc_frag).expect("couldn't compile shader"),
+        ));
 
         let block_model = graphics::Model::new(
-            gl.clone(),
+            gh,
             &[
                 (0.0, 0.0, 0.0),
                 (1.0, 0.0, 0.0),
@@ -72,7 +59,7 @@ impl Renderer {
         .unwrap();
 
         let star_model = graphics::Model::new(
-            gl.clone(),
+            gh,
             &[
                 (-1.0, -1.0, 0.0),
                 (1.0, -1.0, 0.0),
@@ -94,7 +81,7 @@ impl Renderer {
         .unwrap();
 
         let particle_model = graphics::Model::new(
-            gl.clone(),
+            gh,
             &[(-1.0, -1.0, 0.0), (0.0, 0.732, 0.0), (1.0, -1.0, 0.0)],
             &[],
             &[],
@@ -102,7 +89,7 @@ impl Renderer {
         .unwrap();
 
         let board_model = graphics::Model::new(
-            gl.clone(),
+            gh,
             &[
                 (-6.0, -1.0, 0.0),
                 (16.0, -1.0, 0.0),
@@ -124,32 +111,31 @@ impl Renderer {
         .unwrap();
 
         let star_texture = roman.get_image("star.png");
-        let star_texture = graphics::Texture::from_image(gl.clone(), &star_texture).unwrap();
+        let star_texture = graphics::Texture::from_image(gh, &star_texture).unwrap();
         let block_texture = roman.get_image("block.png");
-        let block_texture = graphics::Texture::from_image(gl.clone(), &block_texture).unwrap();
+        let block_texture = graphics::Texture::from_image(gh, &block_texture).unwrap();
         let board_texture = roman.get_image("board.png");
-        let board_texture = graphics::Texture::from_image(gl.clone(), &board_texture).unwrap();
+        let board_texture = graphics::Texture::from_image(gh, &board_texture).unwrap();
 
         Self {
             block_shader,
-            block_color,
             block_model,
             block_texture,
             board_model,
             board_texture,
             misc_shader,
-            block_transform,
-            block_opacity,
-            misc_transform,
-            misc_color,
             particle_model,
-            texture_enable,
             star_model,
             star_texture,
         }
     }
 
-    pub fn draw(&mut self, board: &Board, mut position: glam::Mat4) {
+    pub fn draw(
+        &mut self,
+        gh: &mut crate::graphics::GraphicsHandle,
+        board: &Board,
+        mut mat: glam::Mat4,
+    ) {
         let death_animation = if let Some(x) = board.death_time {
             std::time::Instant::now().duration_since(x).as_millis() as f32 / 1000.0
         } else {
@@ -158,145 +144,161 @@ impl Renderer {
         let opacity = 1.0 - death_animation;
         let death_fall = death_animation * death_animation * 10.0;
 
-        position *= Mat4::from_translation(Vec3::new(0.0, -death_fall, 0.0));
-        position *= Mat4::from_translation(Vec3::new(5.0, 10.0, 0.0));
-        position *= Mat4::from_scale(Vec3::new(
+        mat *= Mat4::from_translation(Vec3::new(0.0, -death_fall, 0.0));
+        mat *= Mat4::from_translation(Vec3::new(5.0, 10.0, 0.0));
+        mat *= Mat4::from_scale(Vec3::new(
             board.effects.scale,
             board.effects.scale,
             board.effects.scale,
         ));
-        position *= Mat4::from_translation(Vec3::new(-5.0, -10.0, 0.0));
-        position *= Mat4::from_translation(Vec3::new(
+        mat *= Mat4::from_translation(Vec3::new(-5.0, -10.0, 0.0));
+        mat *= Mat4::from_translation(Vec3::new(
             board.effects.position.x,
             board.effects.position.y,
             0.0,
         ));
 
-        self.misc_shader.bind();
+        {
+            gh.push_shader(self.misc_shader.clone());
 
-        // draw the meter of pieces to be added
-        self.texture_enable.set(false);
-        self.misc_color.set(glam::Vec4::new(1.0, 0.0, 0.0, opacity));
-        self.misc_transform.set(position);
-        self.misc_transform
-            .transform(Mat4::from_translation(Vec3::new(-1.0, 0.05, 0.0)));
-        for i in &board.lines_received {
-            self.misc_transform.push();
-            self.misc_transform
-                .transform(Mat4::from_scale(Vec3::new(1.0, *i as f32 - 0.1, 0.9)));
-            self.block_model.render();
-            self.misc_transform.pop();
-            self.misc_transform
-                .transform(Mat4::from_translation(Vec3::new(0.0, *i as f32, 0.0)));
-        }
-
-        // draw the board
-        self.misc_color.set(Vec4::new(1.0, 1.0, 1.0, opacity));
-        self.texture_enable.set(true);
-        self.misc_transform.set(position);
-        self.board_texture.bind();
-        self.board_model.render();
-
-        // draw the placed pieces
-        self.block_shader.bind();
-        self.block_transform.set(position);
-
-        self.block_opacity.set(opacity);
-        self.block_texture.bind();
-        for i in 0..24 {
-            for j in 0..10 {
-                self.block_transform.push();
-                self.block_transform
-                    .transform(glam::Mat4::from_translation(Vec3::new(
-                        j as f32, i as f32, 0.0,
-                    )));
-                if let Block::Block { color } = board.blocks[i][j] {
-                    self.block_color
-                        .set(glam::Vec4::new(color.0, color.1, color.2, 1.0));
-                    self.block_model.render();
+            // draw the meter of pieces to be added
+            {
+                gh.set_uniform("enable_texture", false);
+                gh.set_uniform("color", glam::Vec4::new(1.0, 0.0, 0.0, opacity));
+                let mut mat = mat * Mat4::from_translation(Vec3::new(-1.0, 0.05, 0.0));
+                for i in &board.lines_received {
+                    gh.set_uniform(
+                        "view",
+                        mat * Mat4::from_scale(Vec3::new(1.0, *i as f32 - 0.1, 0.9)),
+                    );
+                    self.block_model.render(gh);
+                    mat *= Mat4::from_translation(Vec3::new(0.0, *i as f32, 0.0));
                 }
-                self.block_transform.pop();
             }
+
+            // draw the board
+            {
+                gh.set_uniform("enable_texture", true);
+                gh.set_uniform("color", Vec4::new(1.0, 1.0, 1.0, opacity));
+                gh.set_uniform("view", mat);
+                self.board_texture.bind(gh);
+                self.board_model.render(gh);
+            }
+
+            gh.pop_shader();
         }
 
-        // draw the ghost piece
-        self.block_transform.push();
-        self.block_transform
-            .transform(glam::Mat4::from_translation(Vec3::new(
-                board.ghost_piece.position.x as f32,
-                board.ghost_piece.position.y as f32,
-                0.0,
-            )));
-        self.draw_piece(&board.ghost_piece, true);
-        self.block_transform.pop();
+        {
+            gh.push_shader(self.block_shader.clone());
+            self.block_texture.bind(gh);
+            // draw the placed pieces
+            for i in 0..24 {
+                for j in 0..10 {
+                    if let Block::Block { color } = board.blocks[i][j] {
+                        gh.set_uniform(
+                            "view",
+                            mat * glam::Mat4::from_translation(Vec3::new(j as f32, i as f32, 0.0)),
+                        );
+                        gh.set_uniform(
+                            "color",
+                            glam::Vec4::new(color.0, color.1, color.2, opacity),
+                        );
+                        self.block_model.render(gh);
+                    }
+                }
+            }
 
-        // draw the falling piece
-        self.block_transform.push();
-        self.block_transform
-            .transform(glam::Mat4::from_translation(Vec3::new(
-                board.falling_piece.position.x as f32,
-                board.falling_piece.position.y as f32,
-                0.0,
-            )));
-        self.draw_piece(&board.falling_piece, false);
-        self.block_transform.pop();
+            // draw the ghost piece
+            self.draw_piece(
+                gh,
+                mat * glam::Mat4::from_translation(Vec3::new(
+                    board.ghost_piece.position.x as f32,
+                    board.ghost_piece.position.y as f32,
+                    0.0,
+                )),
+                &board.ghost_piece,
+                true,
+            );
 
-        // draw the queue
-        self.block_transform.push();
-        self.block_transform
-            .transform(Mat4::from_translation(Vec3::new(12.5, 17.5, 0.0)));
-        for i in 0..5 {
-            self.draw_shape(board.piece_generator.queue[i], false);
-            self.block_transform
-                .transform(Mat4::from_translation(Vec3::new(0.0, -3.0, 0.0)));
-        }
-        self.block_transform.pop();
+            // draw the falling piece
+            self.draw_piece(
+                gh,
+                mat * glam::Mat4::from_translation(Vec3::new(
+                    board.falling_piece.position.x as f32,
+                    board.falling_piece.position.y as f32,
+                    0.0,
+                )),
+                &board.falling_piece,
+                false,
+            );
 
-        // draw the swap piece
-        if let Some(x) = board.swap_piece {
-            self.block_transform.push();
-            self.block_transform
-                .transform(Mat4::from_translation(Vec3::new(-2.5, 17.5, 0.0)));
-            self.draw_shape(x, board.swapped);
-            self.block_transform.pop();
+            // draw the queue
+            {
+                let mut mat = mat * Mat4::from_translation(Vec3::new(12.5, 17.5, 0.0));
+                for i in 0..5 {
+                    self.draw_shape(gh, mat, board.piece_generator.queue[i], false);
+                    mat *= Mat4::from_translation(Vec3::new(0.0, -3.0, 0.0));
+                }
+            }
+
+            // draw the swap piece
+            if let Some(x) = board.swap_piece {
+                self.draw_shape(
+                    gh,
+                    mat * Mat4::from_translation(Vec3::new(-2.5, 17.5, 0.0)),
+                    x,
+                    board.swapped,
+                );
+            }
+
+            gh.pop_shader();
         }
 
         // draw the particles
-        self.misc_shader.bind();
-        self.misc_transform.set(position);
-        for i in &board.effects.particles {
-            self.misc_transform.push();
-            self.misc_transform
-                .transform(Mat4::from_translation(Vec3::new(
-                    i.position.x,
-                    i.position.y,
-                    0.0,
-                )));
-            self.misc_transform
-                .transform(Mat4::from_scale(Vec3::new(i.size, i.size, 1.0)));
-            match i.model {
-                effects::ParticleModel::Colorful(color) => {
-                    self.misc_color.set(color);
-                    self.texture_enable.set(false);
-                    self.particle_model.render();
-                }
-                effects::ParticleModel::Star => {
-                    self.misc_color.set(Vec4::new(1.0, 1.0, 1.0, 1.0));
-                    self.texture_enable.set(true);
-                    self.star_texture.bind();
-                    self.star_model.render();
+        {
+            gh.push_shader(self.misc_shader.clone());
+            for i in &board.effects.particles {
+                gh.set_uniform(
+                    "view",
+                    mat * Mat4::from_translation(Vec3::new(i.position.x, i.position.y, 0.0))
+                        * Mat4::from_scale(Vec3::new(i.size, i.size, 1.0)),
+                );
+                match i.model {
+                    effects::ParticleModel::Colorful(color) => {
+                        gh.set_uniform("color", color);
+                        gh.set_uniform("enable_texture", false);
+                        self.particle_model.render(gh);
+                    }
+                    effects::ParticleModel::Star => {
+                        gh.set_uniform("color", Vec4::new(1.0, 1.0, 1.0, 1.0));
+                        gh.set_uniform("enable_texture", true);
+                        self.star_texture.bind(gh);
+                        self.star_model.render(gh);
+                    }
                 }
             }
-            self.misc_transform.pop();
+            gh.pop_shader();
         }
     }
 
-    fn draw_piece(&mut self, piece: &Tetromino, shadow: bool) {
+    fn draw_piece(
+        &mut self,
+        gh: &mut crate::graphics::GraphicsHandle,
+        mat: Mat4,
+        piece: &Tetromino,
+        shadow: bool,
+    ) {
         let shape = piece.get_shape();
-        self.draw_blocks(&shape, shadow);
+        self.draw_blocks(gh, mat, &shape, shadow);
     }
 
-    fn draw_shape(&mut self, shape: tetromino::Shape, shadow: bool) {
+    fn draw_shape(
+        &mut self,
+        gh: &mut crate::graphics::GraphicsHandle,
+        mat: Mat4,
+        shape: tetromino::Shape,
+        shadow: bool,
+    ) {
         let piece = Tetromino::new(shape);
         let shape = piece.get_shape();
         let mut com = glam::Vec2::new(0.0, 0.0);
@@ -310,29 +312,37 @@ impl Renderer {
             }
         }
 
-        self.block_transform.push();
-        self.block_transform
-            .transform(Mat4::from_translation(Vec3::new(-com.x, -com.y, 0.0)));
-        self.draw_blocks(&shape, shadow);
-        self.block_transform.pop();
+        self.draw_blocks(
+            gh,
+            mat * Mat4::from_translation(Vec3::new(-com.x, -com.y, 0.0)),
+            &shape,
+            shadow,
+        );
     }
 
-    fn draw_blocks(&mut self, shape: &[[Block; 4]; 4], shadow: bool) {
+    fn draw_blocks(
+        &mut self,
+        gh: &mut crate::graphics::GraphicsHandle,
+        mat: Mat4,
+        shape: &[[Block; 4]; 4],
+        shadow: bool,
+    ) {
         for y in 0..4 {
             for x in 0..4 {
                 if let Block::Block { color } = shape[x][y] {
-                    self.block_transform.push();
-                    self.block_transform
-                        .transform(glam::Mat4::from_translation(Vec3::new(
-                            x as f32, y as f32, 0.0,
-                        )));
-                    self.block_color.set(if shadow {
-                        glam::Vec4::new(0.5, 0.5, 0.5, 0.5)
-                    } else {
-                        glam::Vec4::new(color.0, color.1, color.2, 1.0)
-                    });
-                    self.block_model.render();
-                    self.block_transform.pop();
+                    gh.set_uniform(
+                        "view",
+                        mat * glam::Mat4::from_translation(Vec3::new(x as f32, y as f32, 0.0)),
+                    );
+                    gh.set_uniform(
+                        "color",
+                        if shadow {
+                            glam::Vec4::new(0.5, 0.5, 0.5, 0.5)
+                        } else {
+                            glam::Vec4::new(color.0, color.1, color.2, 1.0)
+                        },
+                    );
+                    self.block_model.render(gh);
                 }
             }
         }

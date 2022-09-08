@@ -36,21 +36,27 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn single(gl: Rc<gl33::GlFns>, roman: &crate::resource::ResourceManager) -> Self {
+    pub fn single(
+        gh: &mut crate::graphics::GraphicsHandle,
+        roman: &crate::resource::ResourceManager,
+    ) -> Self {
         let rng = SmallRng::from_entropy();
         Self {
-            renderer: board::Renderer::new(gl.clone(), roman),
+            renderer: board::Renderer::new(gh, roman),
             boards: vec![Rc::new(RefCell::new(Board::new(
                 keys::KeyBinds::single(),
                 rng,
             )))],
             keys_pressed: std::collections::HashMap::new(),
             exiting: false,
-            background: background::Background::new(gl.clone(), roman),
+            background: background::Background::new(gh, roman),
         }
     }
 
-    pub fn double(gl: Rc<gl33::GlFns>, roman: &crate::resource::ResourceManager) -> Self {
+    pub fn double(
+        gh: &mut crate::graphics::GraphicsHandle,
+        roman: &crate::resource::ResourceManager,
+    ) -> Self {
         let rng = SmallRng::from_entropy();
         let left = Rc::new(RefCell::new(Board::new(
             keys::KeyBinds::left(),
@@ -62,22 +68,27 @@ impl Game {
             right.borrow_mut().victim = Some(left.clone());
         }
         Self {
-            renderer: board::Renderer::new(gl.clone(), roman),
+            renderer: board::Renderer::new(gh, roman),
             boards: vec![left, right],
             keys_pressed: std::collections::HashMap::new(),
             exiting: false,
-            background: background::Background::new(gl.clone(), roman),
+            background: background::Background::new(gh, roman),
         }
     }
 }
 
 impl crate::Playable for Game {
-    fn draw(&mut self, screen_width: i32, screen_height: i32) {
+    fn draw(
+        &mut self,
+        gh: &mut crate::graphics::GraphicsHandle,
+        screen_width: i32,
+        screen_height: i32,
+    ) {
         let aspect = screen_width as f32 / screen_height as f32;
         let mat = Mat4::from_scale(Vec3::new(1.0 / aspect, 1.0, 1.0))
             * Mat4::from_scale(Vec3::new(0.75, 0.75, 0.75));
 
-        self.background.draw(screen_width, screen_height);
+        self.background.draw(gh, screen_width, screen_height);
 
         for i in 0..self.boards.len() {
             let mat =
@@ -87,7 +98,7 @@ impl crate::Playable for Game {
                     0.0,
                 )) * Mat4::from_scale(Vec3::new(0.1, 0.1, 0.1));
 
-            self.renderer.draw(&self.boards[i].borrow(), mat);
+            self.renderer.draw(gh, &self.boards[i].borrow(), mat);
         }
 
         // self.board.draw(gl, mat);

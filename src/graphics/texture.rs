@@ -15,24 +15,24 @@ impl Drop for Texture {
 
 impl Texture {
     pub fn from_image(
-        gl: Rc<GlFns>,
+        handle: &GraphicsHandle,
         img: &image::ImageBuffer<image::Rgba<u8>, Vec<u8>>,
     ) -> Result<Self, String> {
         let mut id = 0u32;
         unsafe {
-            gl.GenTextures(1, &mut id as _);
-            gl.BindTexture(gl33::GL_TEXTURE_2D, id);
-            gl.TexParameteri(
+            handle.gl.GenTextures(1, &mut id as _);
+            handle.gl.BindTexture(gl33::GL_TEXTURE_2D, id);
+            handle.gl.TexParameteri(
                 gl33::GL_TEXTURE_2D,
                 gl33::GL_TEXTURE_MIN_FILTER,
                 gl33::GL_LINEAR.0 as _,
             );
-            gl.TexParameteri(
+            handle.gl.TexParameteri(
                 gl33::GL_TEXTURE_2D,
                 gl33::GL_TEXTURE_MAG_FILTER,
                 gl33::GL_LINEAR.0 as _,
             );
-            gl.TexImage2D(
+            handle.gl.TexImage2D(
                 gl33::GL_TEXTURE_2D,
                 0,
                 gl33::GL_RGBA.0 as _,
@@ -43,12 +43,15 @@ impl Texture {
                 gl33::GL_UNSIGNED_BYTE,
                 img.as_ptr() as _,
             );
-            gl.GenerateMipmap(gl33::GL_TEXTURE_2D);
+            handle.gl.GenerateMipmap(gl33::GL_TEXTURE_2D);
         }
-        Ok(Self { gl, id })
+        Ok(Self {
+            gl: handle.gl.clone(),
+            id,
+        })
     }
 
-    pub fn load(gl: Rc<GlFns>, data: &[u8]) -> Result<Self, String> {
+    pub fn load(handle: &GraphicsHandle, data: &[u8]) -> Result<Self, String> {
         let cursor = std::io::Cursor::new(data);
         let img = image::io::Reader::new(cursor)
             .with_guessed_format()
@@ -58,12 +61,12 @@ impl Texture {
             .ok()
             .ok_or(String::from("unable to load image"))?
             .into_rgba8();
-        Self::from_image(gl, &img)
+        Self::from_image(handle, &img)
     }
 
-    pub fn bind(&self) {
+    pub fn bind(&self, gh: &GraphicsHandle) {
         unsafe {
-            self.gl.BindTexture(gl33::GL_TEXTURE_2D, self.id);
+            gh.gl.BindTexture(gl33::GL_TEXTURE_2D, self.id);
         }
     }
 }

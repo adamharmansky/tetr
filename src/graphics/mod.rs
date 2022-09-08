@@ -3,13 +3,12 @@ use glam::*;
 
 use std::rc::Rc;
 
+pub mod handle;
 pub mod model;
 pub mod shader;
 pub mod texture;
-pub mod transformer;
 
+pub use handle::GraphicsHandle;
 pub use model::Model;
 pub use shader::Shader;
-pub use shader::UniformHandle;
 pub use texture::Texture;
-pub use transformer::Transformer;

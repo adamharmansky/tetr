@@ -277,7 +277,7 @@ impl Board {
         // this is used for score calculation and must be tested BEFORE the block has been landed
         let covered = self.test_translation(BlockPos::new(0, 1));
 
-        let mut outside = 0;
+        let mut top = 0;
 
         // convert the piece into blocks
         let piece = self.falling_piece.get_shape();
@@ -286,15 +286,15 @@ impl Board {
                 if let Block::Block { .. } = piece[x][y] {
                     let board_x = self.falling_piece.position.x + x as i32;
                     let board_y = self.falling_piece.position.y + y as i32;
-                    if board_y - 19 > outside {
-                        outside = board_y - 19;
+                    if board_y - 19 > top {
+                        top = board_y;
                     }
                     self.blocks[board_y as usize][board_x as usize] = piece[x as usize][y as usize];
                 }
             }
         }
 
-        self.land_aftermath(self.falling_piece.position.y, outside, covered);
+        self.land_aftermath(self.falling_piece.position.y, top, covered);
         self.land_particles();
 
         // draw a new piece and reset everything
@@ -305,12 +305,7 @@ impl Board {
         self.update_ghost();
     }
 
-    fn land_aftermath(
-        &mut self,
-        mut piece_position: i32,
-        mut blocks_outside_board: i32,
-        covered: bool,
-    ) {
+    fn land_aftermath(&mut self, mut piece_position: i32, mut piece_top: i32, covered: bool) {
         // add a little bump for landing the piece
         self.effects.velocity.y -= 0.075;
 
@@ -327,7 +322,7 @@ impl Board {
             lines_cleared += 1;
             self.remove_line(y as _);
             piece_position -= 1;
-            blocks_outside_board -= 1;
+            piece_top -= 1;
         }
 
         let mut lines_to_send =
@@ -342,7 +337,7 @@ impl Board {
                 x -= lines_to_send;
                 lines_to_send = 0;
                 self.insert_cheese(x as _);
-                blocks_outside_board += x as i32;
+                piece_top += x as i32;
                 self.effects.velocity.y += 0.1 * x as f32;
             } else {
                 lines_to_send -= x;
@@ -350,7 +345,7 @@ impl Board {
         }
 
         // Die if we have reached the top
-        if blocks_outside_board > 0 {
+        if piece_top >= 20 {
             self.death_time = Some(std::time::Instant::now());
             return;
         }
@@ -439,8 +434,8 @@ impl Board {
                     x as f32 + rand::random::<f32>(),
                     y as f32 + rand::random::<f32>(),
                 ),
-                glam::Vec2::new(0.0, 0.0),
-                glam::Vec2::new(0.0, 0.0005),
+                glam::Vec2::new((rand::random::<f32>() - 0.5) * 0.1, 0.1),
+                glam::Vec2::new(0.0, -0.01),
                 0.4 * rand::random::<f32>(),
                 0.005,
                 effects::ParticleModel::Star,

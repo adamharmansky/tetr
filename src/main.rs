@@ -6,6 +6,7 @@ mod resource;
 mod util;
 
 use game::Game;
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use glutin::{
@@ -32,15 +33,12 @@ fn main() {
         .expect("Couldn't create context!");
     let context = unsafe { context.make_current().unwrap() };
 
-    let gl = Rc::new(
-        unsafe {
-            graphics::GlFns::load_from(&|ptr| {
-                context
-                    .get_proc_address(std::ffi::CStr::from_ptr(ptr as *const i8).to_str().unwrap())
-            })
-        }
-        .expect("Couldn't load OpenGL!"),
-    );
+    let gl = unsafe {
+        graphics::GlFns::load_from(&|ptr| {
+            context.get_proc_address(std::ffi::CStr::from_ptr(ptr as *const i8).to_str().unwrap())
+        })
+    }
+    .expect("Couldn't load OpenGL!");
 
     unsafe {
         gl.Enable(gl33::GL_TEXTURE_2D);
@@ -48,8 +46,9 @@ fn main() {
         gl.BlendFunc(gl33::GL_SRC_ALPHA, gl33::GL_ONE_MINUS_SRC_ALPHA);
     }
 
+    let mut gh = graphics::GraphicsHandle::new(gl);
     let roman = resource::ResourceManager::new(String::from("resources")).unwrap();
-    let mut screen: Box<dyn Playable> = Box::new(menu::Menu::new(gl.clone(), &roman));
+    let mut screen: Box<dyn Playable> = Box::new(menu::Menu::new(&mut gh, &roman));
 
     evloop.run(move |ev, _, control_flow| {
         *control_flow = ControlFlow::Wait;
@@ -65,18 +64,20 @@ fn main() {
 
                 let winsize = context.window().inner_size();
                 unsafe {
-                    gl.Viewport(0, 0, winsize.width as _, winsize.height as _);
-                    gl.ClearColor(0.0, 0.0, 0.0, 1.0);
-                    gl.Clear(gl33::GL_COLOR_BUFFER_BIT | gl33::GL_DEPTH_BUFFER_BIT);
+                    gh.gl
+                        .Viewport(0, 0, winsize.width as _, winsize.height as _);
+                    gh.gl.ClearColor(0.0, 0.0, 0.0, 1.0);
+                    gh.gl
+                        .Clear(gl33::GL_COLOR_BUFFER_BIT | gl33::GL_DEPTH_BUFFER_BIT);
                 }
 
-                screen.draw(winsize.width as _, winsize.height as _);
+                screen.draw(&mut gh, winsize.width as _, winsize.height as _);
 
                 if let Some(x) = screen.next_screen() {
                     screen = match x {
-                        Screen::Menu => Box::new(menu::Menu::new(gl.clone(), &roman)),
-                        Screen::SingleGame => Box::new(Game::single(gl.clone(), &roman)),
-                        Screen::DoubleGame => Box::new(Game::double(gl.clone(), &roman)),
+                        Screen::Menu => Box::new(menu::Menu::new(&mut gh, &roman)),
+                        Screen::SingleGame => Box::new(Game::single(&mut gh, &roman)),
+                        Screen::DoubleGame => Box::new(Game::double(&mut gh, &roman)),
                     };
                 }
 

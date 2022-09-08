@@ -9,12 +9,12 @@ struct MenuItem {
 
 impl MenuItem {
     pub fn new(
-        gl: Rc<gl33::GlFns>,
+        gh: &mut graphics::GraphicsHandle,
         texture: &image::ImageBuffer<image::Rgba<u8>, Vec<u8>>,
         target: Screen,
     ) -> Self {
         Self {
-            texture: graphics::Texture::from_image(gl, texture).unwrap(),
+            texture: graphics::Texture::from_image(gh, texture).unwrap(),
             target,
             zoom: 1.0,
         }
@@ -22,7 +22,7 @@ impl MenuItem {
 }
 
 pub struct Menu {
-    shader: Rc<graphics::Shader>,
+    shader: Rc<RefCell<graphics::Shader>>,
     item_model: graphics::Model,
     active_item: usize,
     items: Vec<MenuItem>,
@@ -31,17 +31,21 @@ pub struct Menu {
 }
 
 impl Menu {
-    pub fn new(gl: Rc<gl33::GlFns>, roman: &crate::resource::ResourceManager) -> Self {
+    pub fn new(
+        gh: &mut graphics::GraphicsHandle,
+        roman: &crate::resource::ResourceManager,
+    ) -> Self {
         let single = roman.get_image("single.png");
         let double = roman.get_image("double.png");
         let vert = roman.get_text("default.vert");
         let frag = roman.get_text("menu.frag");
+        let shader = Rc::new(RefCell::new(
+            graphics::Shader::new(gh, &vert, &frag).expect("couldn't compile shader!"),
+        ));
         Self {
-            shader: Rc::new(
-                graphics::Shader::new(gl.clone(), &vert, &frag).expect("couldn't compile shader!"),
-            ),
+            shader,
             item_model: graphics::Model::new(
-                gl.clone(),
+                gh,
                 &[
                     (-1.0, -0.25, 0.0),
                     (1.0, -0.25, 0.0),
@@ -64,8 +68,8 @@ impl Menu {
             chosen: None,
             active_item: 0,
             items: vec![
-                MenuItem::new(gl.clone(), &single, Screen::SingleGame),
-                MenuItem::new(gl.clone(), &double, Screen::DoubleGame),
+                MenuItem::new(gh, &single, Screen::SingleGame),
+                MenuItem::new(gh, &double, Screen::DoubleGame),
             ],
             spring_position: 0.0,
         }
@@ -83,33 +87,27 @@ impl Playable for Menu {
         }
     }
 
-    fn draw(&mut self, screen_width: i32, screen_height: i32) {
-        self.shader.bind();
+    fn draw(&mut self, gh: &mut graphics::GraphicsHandle, screen_width: i32, screen_height: i32) {
+        gh.push_shader(self.shader.clone());
         let aspect = screen_width as f32 / screen_height as f32;
-        let mat = Mat4::from_scale(Vec3::new(1.0 / aspect, 1.0, 1.0))
+        let mut mat = Mat4::from_scale(Vec3::new(1.0 / aspect, 1.0, 1.0))
             * Mat4::from_scale(Vec3::new(0.5, 0.5, 0.5));
-        let mut transform = graphics::Transformer::new(self.shader.clone());
-        transform.set(mat);
 
-        transform.push();
-        transform.transform(Mat4::from_translation(Vec3::new(
-            0.0,
-            self.spring_position,
-            0.0,
-        )));
+        mat *= Mat4::from_translation(Vec3::new(0.0, self.spring_position, 0.0));
         for i in 0..self.items.len() {
-            self.items[i].texture.bind();
-            transform.push();
-            transform.transform(Mat4::from_scale(Vec3::new(
-                self.items[i].zoom,
-                self.items[i].zoom,
-                self.items[i].zoom,
-            )));
-            self.item_model.render();
-            transform.pop();
-            transform.transform(Mat4::from_translation(Vec3::new(0.0, -0.5, 0.0)));
+            self.items[i].texture.bind(gh);
+            gh.set_uniform(
+                "view",
+                mat * Mat4::from_scale(Vec3::new(
+                    self.items[i].zoom,
+                    self.items[i].zoom,
+                    self.items[i].zoom,
+                )),
+            );
+            self.item_model.render(gh);
+            mat *= Mat4::from_translation(Vec3::new(0.0, -0.5, 0.0));
         }
-        transform.pop();
+        gh.pop_shader();
     }
 
     fn input(&mut self, event: glutin::event::KeyboardInput) {
