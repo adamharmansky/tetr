@@ -51,6 +51,7 @@ impl Texture {
         })
     }
 
+    #[allow(unused)]
     pub fn load(handle: &GraphicsHandle, data: &[u8]) -> Result<Self, String> {
         let cursor = std::io::Cursor::new(data);
         let img = image::io::Reader::new(cursor)
@@ -67,6 +68,22 @@ impl Texture {
     pub fn bind(&self, gh: &GraphicsHandle) {
         unsafe {
             gh.gl.BindTexture(gl33::GL_TEXTURE_2D, self.id);
+        }
+    }
+
+    pub fn fontify(&mut self, gh: &GraphicsHandle) {
+        unsafe {
+            gh.gl.BindTexture(gl33::GL_TEXTURE_2D, self.id);
+            gh.gl.TexParameteri(
+                gl33::GL_TEXTURE_2D,
+                gl33::GL_TEXTURE_WRAP_S,
+                gl33::GL_CLAMP_TO_BORDER.0 as _,
+            );
+            gh.gl.TexParameteri(
+                gl33::GL_TEXTURE_2D,
+                gl33::GL_TEXTURE_WRAP_T,
+                gl33::GL_CLAMP_TO_BORDER.0 as _,
+            );
         }
     }
 }

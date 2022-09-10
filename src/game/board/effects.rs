@@ -1,5 +1,10 @@
 use glam::{Vec2, Vec4};
 
+pub struct InfoText {
+    pub text: String,
+    pub time: std::time::Instant,
+}
+
 pub struct Particle {
     pub position: Vec2,
     pub velocity: Vec2,
@@ -61,6 +66,8 @@ pub struct BoardEffects {
     scale_friction: f32,
 
     pub particles: Vec<Particle>,
+
+    pub info: Option<InfoText>,
 }
 
 impl BoardEffects {
@@ -68,13 +75,14 @@ impl BoardEffects {
         Self {
             position: Vec2::new(0.0, 0.0),
             velocity: Vec2::new(0.0, 0.0),
-            scale: 1.0,
+            scale: 0.5,
             beat: 0.0,
             spring,
             friction,
             scale_spring,
             scale_friction,
             particles: Vec::new(),
+            info: None,
         }
     }
 
@@ -98,6 +106,14 @@ impl BoardEffects {
                 p.size < 0.0
             } {
                 self.particles.swap_remove(i);
+            }
+        }
+
+        let now = std::time::Instant::now();
+
+        if let Some(x) = &mut self.info {
+            if now.duration_since(x.time) > std::time::Duration::from_millis(1000) {
+                self.info = None;
             }
         }
     }

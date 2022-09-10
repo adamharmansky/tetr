@@ -35,41 +35,40 @@ pub struct Game {
     background: background::Background,
 }
 
+pub enum GameMode {
+    Single,
+    Double,
+}
+
 impl Game {
-    pub fn single(
+    pub fn new(
         gh: &mut crate::graphics::GraphicsHandle,
         roman: &crate::resource::ResourceManager,
+        tr: Rc<crate::text::TextRenderer>,
+        mode: GameMode,
     ) -> Self {
         let rng = SmallRng::from_entropy();
-        Self {
-            renderer: board::Renderer::new(gh, roman),
-            boards: vec![Rc::new(RefCell::new(Board::new(
+        let boards = match mode {
+            GameMode::Double => {
+                let left = Rc::new(RefCell::new(Board::new(
+                    keys::KeyBinds::left(),
+                    rng.clone(),
+                )));
+                let right = Rc::new(RefCell::new(Board::new(keys::KeyBinds::right(), rng)));
+                {
+                    left.borrow_mut().victim = Some(right.clone());
+                    right.borrow_mut().victim = Some(left.clone());
+                }
+                vec![left, right]
+            }
+            GameMode::Single => vec![Rc::new(RefCell::new(Board::new(
                 keys::KeyBinds::single(),
                 rng,
             )))],
-            keys_pressed: std::collections::HashMap::new(),
-            exiting: false,
-            background: background::Background::new(gh, roman),
-        }
-    }
-
-    pub fn double(
-        gh: &mut crate::graphics::GraphicsHandle,
-        roman: &crate::resource::ResourceManager,
-    ) -> Self {
-        let rng = SmallRng::from_entropy();
-        let left = Rc::new(RefCell::new(Board::new(
-            keys::KeyBinds::left(),
-            rng.clone(),
-        )));
-        let right = Rc::new(RefCell::new(Board::new(keys::KeyBinds::right(), rng)));
-        {
-            left.borrow_mut().victim = Some(right.clone());
-            right.borrow_mut().victim = Some(left.clone());
-        }
+        };
         Self {
-            renderer: board::Renderer::new(gh, roman),
-            boards: vec![left, right],
+            renderer: board::Renderer::new(gh, roman, tr),
+            boards,
             keys_pressed: std::collections::HashMap::new(),
             exiting: false,
             background: background::Background::new(gh, roman),

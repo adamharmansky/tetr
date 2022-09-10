@@ -1,15 +1,10 @@
 use super::*;
 use std::collections::HashMap;
 
-struct Uniform {
-    id: u32,
-    values: Vec<Box<dyn shader::SetAsUniform>>,
-}
-
 pub struct Shader {
     gl: Rc<GlFns>,
     id: u32,
-    uniforms: HashMap<&'static str, Uniform>,
+    uniforms: HashMap<&'static str, u32>,
     vs: u32,
     fs: u32,
 }
@@ -55,54 +50,18 @@ impl Shader {
         gl.UseProgram(self.id);
     }
 
-    fn get_uniform<'a>(&'a mut self, gl: &GlFns, name: &'static str) -> &'a mut Uniform {
-        self.uniforms.entry(name).or_insert_with(|| unsafe {
+    fn get_uniform(&mut self, gl: &GlFns, name: &'static str) -> u32 {
+        *self.uniforms.entry(name).or_insert_with(|| unsafe {
             let mut name = String::from(name);
             name += "\0";
             let name = name.as_bytes().as_ptr();
-            let id = gl.GetUniformLocation(self.id, name as _) as u32;
-            Uniform {
-                id,
-                values: Vec::new(),
-            }
+            gl.GetUniformLocation(self.id, name as _) as u32
         })
     }
 
-    pub fn uniform_set<T: SetAsUniform + 'static>(
-        &mut self,
-        gl: &GlFns,
-        name: &'static str,
-        value: T,
-    ) {
-        let uni = self.get_uniform(gl, name);
+    pub fn uniform<T: SetAsUniform + 'static>(&mut self, gl: &GlFns, name: &'static str, value: T) {
         unsafe {
-            value.set_as_uniform(gl, uni.id);
-        }
-        if let Some(x) = uni.values.last_mut() {
-            *x = Box::new(value);
-        } else {
-            uni.values.push(Box::new(value));
-        }
-    }
-
-    pub fn uniform_push<T: SetAsUniform + 'static>(
-        &mut self,
-        gl: &GlFns,
-        name: &'static str,
-        value: T,
-    ) {
-        let uni = self.get_uniform(gl, name);
-        unsafe {
-            value.set_as_uniform(gl, uni.id);
-        }
-        uni.values.push(Box::new(value));
-    }
-
-    pub fn uniform_pop(&mut self, gl: &GlFns, name: &'static str) {
-        let uni = self.get_uniform(gl, name);
-        let value = uni.values.pop().unwrap();
-        unsafe {
-            value.set_as_uniform(gl, uni.id);
+            value.set_as_uniform(gl, self.get_uniform(gl, name));
         }
     }
 }

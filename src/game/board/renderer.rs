@@ -1,5 +1,6 @@
 use super::*;
 use crate::graphics;
+use crate::text;
 use glam::{Vec2, Vec4};
 
 /// The renderer renders the playing field, it contains the sahders, textures, models, ...
@@ -17,12 +18,16 @@ pub struct Renderer {
 
     star_model: graphics::Model,
     star_texture: graphics::Texture,
+
+    tr: Rc<text::TextRenderer>,
+    font: text::Font,
 }
 
 impl Renderer {
     pub fn new(
         gh: &mut crate::graphics::GraphicsHandle,
         roman: &crate::resource::ResourceManager,
+        tr: Rc<text::TextRenderer>,
     ) -> Self {
         let default_vert = roman.get_text("default.vert");
 
@@ -117,6 +122,8 @@ impl Renderer {
         let board_texture = roman.get_image("board.png");
         let board_texture = graphics::Texture::from_image(gh, &board_texture).unwrap();
 
+        let font = text::Font::new(&tr, roman.get_binary("teko-light.ttf"), 200).unwrap();
+
         Self {
             block_shader,
             block_model,
@@ -127,6 +134,8 @@ impl Renderer {
             particle_model,
             star_model,
             star_texture,
+            tr,
+            font,
         }
     }
 
@@ -136,8 +145,9 @@ impl Renderer {
         board: &Board,
         mut mat: glam::Mat4,
     ) {
+        let now = std::time::Instant::now();
         let death_animation = if let Some(x) = board.death_time {
-            std::time::Instant::now().duration_since(x).as_millis() as f32 / 1000.0
+            now.duration_since(x).as_millis() as f32 / 1000.0
         } else {
             0.0
         } as f32;
@@ -159,7 +169,7 @@ impl Renderer {
         ));
 
         {
-            gh.push_shader(self.misc_shader.clone());
+            gh.bind(self.misc_shader.clone());
 
             // draw the meter of pieces to be added
             {
@@ -185,11 +195,11 @@ impl Renderer {
                 self.board_model.render(gh);
             }
 
-            gh.pop_shader();
+            gh.unbind();
         }
 
         {
-            gh.push_shader(self.block_shader.clone());
+            gh.bind(self.block_shader.clone());
             self.block_texture.bind(gh);
             // draw the placed pieces
             for i in 0..24 {
@@ -251,12 +261,49 @@ impl Renderer {
                 );
             }
 
-            gh.pop_shader();
+            gh.unbind();
         }
+
+        // draw the info text
+        if let Some(x) = &board.effects.info {
+            let width = self.tr.get_width(gh, &mut self.font, x.text.as_str());
+            let size = 1.0 + now.duration_since(x.time).as_millis() as f32 / 4000.0;
+            self.tr.draw(
+                gh,
+                &mut self.font,
+                mat * Mat4::from_translation(Vec3::new(-1.2 - width * 0.01 * size, 14.0, 0.0))
+                    * Mat4::from_scale(Vec3::new(0.01, 0.01, 0.01) * size),
+                Vec4::new(
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0 - now.duration_since(x.time).as_millis() as f32 / 1000.0,
+                ),
+                x.text.as_str(),
+            );
+        }
+
+        self.tr.draw(
+            gh,
+            &mut self.font,
+            mat * Mat4::from_translation(Vec3::new(10.2, 2.3, 0.0))
+                * Mat4::from_scale(Vec3::new(0.008, 0.01, 0.01)),
+            Vec4::new(1.0, 1.0, 1.0, if board.score.combo < 2 { 0.1 } else { 1.0 }),
+            format!("COMBO×{}", board.score.combo).as_str(),
+        );
+
+        self.tr.draw(
+            gh,
+            &mut self.font,
+            mat * Mat4::from_translation(Vec3::new(10.2, 0.3, 0.0))
+                * Mat4::from_scale(Vec3::new(0.01, 0.01, 0.01)),
+            Vec4::new(1.0, 1.0, 1.0, if board.score.b2b < 2 { 0.1 } else { 1.0 }),
+            format!("B2B×{}", board.score.b2b).as_str(),
+        );
 
         // draw the particles
         {
-            gh.push_shader(self.misc_shader.clone());
+            gh.bind(self.misc_shader.clone());
             for i in &board.effects.particles {
                 gh.set_uniform(
                     "view",
@@ -277,7 +324,7 @@ impl Renderer {
                     }
                 }
             }
-            gh.pop_shader();
+            gh.unbind();
         }
     }
 

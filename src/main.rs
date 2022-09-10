@@ -3,11 +3,11 @@ mod graphics;
 mod game;
 mod menu;
 mod resource;
+mod text;
 mod util;
 
 use game::Game;
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 use glutin::{
     event::{Event, WindowEvent},
@@ -48,7 +48,8 @@ fn main() {
 
     let mut gh = graphics::GraphicsHandle::new(gl);
     let roman = resource::ResourceManager::new(String::from("resources")).unwrap();
-    let mut screen: Box<dyn Playable> = Box::new(menu::Menu::new(&mut gh, &roman));
+    let tr = Rc::new(text::TextRenderer::new(&mut gh, &roman).unwrap());
+    let mut screen: Box<dyn Playable> = Box::new(menu::Menu::new(&mut gh, &roman, tr.clone()));
 
     evloop.run(move |ev, _, control_flow| {
         *control_flow = ControlFlow::Wait;
@@ -74,13 +75,32 @@ fn main() {
                 screen.draw(&mut gh, winsize.width as _, winsize.height as _);
 
                 if let Some(x) = screen.next_screen() {
-                    screen = match x {
-                        Screen::Menu => Box::new(menu::Menu::new(&mut gh, &roman)),
-                        Screen::SingleGame => Box::new(Game::single(&mut gh, &roman)),
-                        Screen::DoubleGame => Box::new(Game::double(&mut gh, &roman)),
+                    match x {
+                        Screen::Menu => {
+                            screen = Box::new(menu::Menu::new(&mut gh, &roman, tr.clone()))
+                        }
+                        Screen::SingleGame => {
+                            screen = Box::new(Game::new(
+                                &mut gh,
+                                &roman,
+                                tr.clone(),
+                                game::GameMode::Single,
+                            ))
+                        }
+                        Screen::DoubleGame => {
+                            screen = Box::new(Game::new(
+                                &mut gh,
+                                &roman,
+                                tr.clone(),
+                                game::GameMode::Double,
+                            ))
+                        }
+                        Screen::Exit => {
+                            *control_flow = ControlFlow::Exit;
+                            return;
+                        }
                     };
                 }
-
                 context.swap_buffers().unwrap();
             }
             _ => (),

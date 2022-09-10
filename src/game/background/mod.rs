@@ -134,16 +134,16 @@ impl Background {
             * Mat4::from_scale(Vec3::new(2.0, 2.0, 1.0));
 
         {
-            gh.push_shader(self.background_shader.clone());
-            gh.set_uniform("color", Vec4::new(0.5, 0.5, 0.5, 1.0));
+            gh.bind(self.background_shader.clone());
+            gh.set_uniform("color", Vec4::new(0.3, 0.3, 0.3, 1.0));
             gh.set_uniform("view", mat);
             self.background.bind(gh);
             self.background_model.render(gh);
-            gh.pop_shader();
+            gh.unbind();
         }
 
         {
-            gh.push_shader(self.shader.clone());
+            gh.bind(self.shader.clone());
             let mat = Mat4::from_scale(Vec3::new(1.0, aspect * 1.0, 1.0))
                 * Mat4::from_translation(Vec3::new(-1.5, -1.5, 0.0))
                 * Mat4::from_scale(Vec3::new(3.0, 3.0, 3.0));
@@ -155,7 +155,7 @@ impl Background {
                 gh.set_uniform("color", i.color);
                 self.triangle.render(gh);
             }
-            gh.pop_shader();
+            gh.unbind();
         }
 
         self.update();

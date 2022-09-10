@@ -325,9 +325,12 @@ impl Board {
             piece_top -= 1;
         }
 
-        let mut lines_to_send =
-            self.score
-                .analyze(lines_cleared, self.falling_piece.shape, covered);
+        let mut lines_to_send = self.score.analyze(
+            lines_cleared,
+            self.falling_piece.shape,
+            covered,
+            &mut self.effects,
+        );
 
         self.effects.velocity.y -= 0.1 * lines_to_send as f32;
 

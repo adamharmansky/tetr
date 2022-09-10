@@ -1,4 +1,3 @@
-use crate::util::StringError;
 use std::collections::HashMap;
 use std::io::prelude::*;
 use std::rc::Rc;
@@ -7,9 +6,11 @@ use std::rc::Rc;
 pub enum Resource {
     Image(Rc<image::ImageBuffer<image::Rgba<u8>, Vec<u8>>>),
     Text(Rc<String>),
+    Binary(Rc<Vec<u8>>),
 }
 
 pub struct ResourceManager {
+    #[allow(unused)]
     /// The directory containing all the resources
     directory: String,
     resources: HashMap<String, Resource>,
@@ -63,6 +64,16 @@ impl ResourceManager {
             _ => panic!("wrong resource type for text"),
         }
     }
+
+    pub fn get_binary(&self, name: &str) -> Rc<Vec<u8>> {
+        match self
+            .get_resource(String::from(name))
+            .expect(&format!("Unable to locate resource: {}", name))
+        {
+            Resource::Binary(x) => x,
+            _ => panic!("wrong resource type for text"),
+        }
+    }
 }
 
 impl Resource {
@@ -74,11 +85,17 @@ impl Resource {
                     .decode()?
                     .into_rgba8(),
             ))),
-            _ => Ok(Resource::Text({
+            "vert" | "frag" | "txt" => Ok(Resource::Text({
                 let mut file = std::fs::File::open(file)?;
                 let mut v = Vec::<u8>::new();
                 file.read_to_end(&mut v)?;
                 Rc::new(String::from_utf8(v)?)
+            })),
+            _ => Ok(Resource::Binary({
+                let mut file = std::fs::File::open(file)?;
+                let mut v = Vec::<u8>::new();
+                file.read_to_end(&mut v)?;
+                Rc::new(v)
             })),
         }
     }
