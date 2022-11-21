@@ -40,10 +40,20 @@ pub struct Board {
 
     effects: BoardEffects,
     score: ScoreHandler,
+
+    audio: Rc<RefCell<kira::manager::AudioManager>>,
+
+    clear_sound: kira::sound::static_sound::StaticSoundData,
+    drop_sound: kira::sound::static_sound::StaticSoundData,
 }
 
 impl Board {
-    pub fn new(keybinds: keys::KeyBinds, rng: rand::rngs::SmallRng) -> Self {
+    pub fn new(
+        keybinds: keys::KeyBinds,
+        rng: rand::rngs::SmallRng,
+        audio: Rc<RefCell<kira::manager::AudioManager>>,
+        roman: &crate::resource::ResourceManager,
+    ) -> Self {
         let mut blocks = PlayingField::new();
         for _ in 0..32 {
             blocks.push_back(Box::new([Block::Air; 10]));
@@ -52,6 +62,18 @@ impl Board {
         let mut piece_factory = PieceGenerator::new(rng);
         let falling_piece = Tetromino::new(piece_factory.next_piece());
         let ghost_piece = falling_piece.clone();
+
+        let clear_sound = kira::sound::static_sound::StaticSoundData::from_cursor(
+            std::io::Cursor::new((*roman.get_binary("clear.wav")).clone()),
+            kira::sound::static_sound::StaticSoundSettings::default(),
+        )
+        .unwrap();
+
+        let drop_sound = kira::sound::static_sound::StaticSoundData::from_cursor(
+            std::io::Cursor::new((*roman.get_binary("drop.wav")).clone()),
+            kira::sound::static_sound::StaticSoundSettings::default(),
+        )
+        .unwrap();
 
         let mut me = Self {
             blocks,
@@ -70,6 +92,9 @@ impl Board {
             death_time: None,
             effects: BoardEffects::new(0.1, 0.5, 0.1, 0.5),
             score: ScoreHandler::new(),
+            audio,
+            clear_sound,
+            drop_sound,
         };
         me.update_ghost();
         me
@@ -229,6 +254,10 @@ impl Board {
                 break;
             }
         }
+        self.audio
+            .borrow_mut()
+            .play(self.drop_sound.clone())
+            .unwrap();
         self.land_piece();
     }
 
@@ -325,12 +354,26 @@ impl Board {
             piece_top -= 1;
         }
 
-        let mut lines_to_send = self.score.analyze(
-            lines_cleared,
-            self.falling_piece.shape,
-            covered,
-            &mut self.effects,
-        );
+        if lines_cleared > 0 {
+            self.audio
+                .borrow_mut()
+                .play(self.clear_sound.clone().with_modified_settings(|_| {
+                    kira::sound::static_sound::StaticSoundSettings::new()
+                        .playback_rate(kira::PlaybackRate::Semitones(self.score.combo as _))
+                }))
+                .unwrap();
+        }
+
+        let (mut lines_to_send, message) =
+            self.score
+                .analyze(lines_cleared, self.falling_piece.shape, covered);
+
+        if let Some(x) = message {
+            self.effects.info = Some(effects::InfoText {
+                text: x,
+                time: std::time::Instant::now(),
+            });
+        }
 
         self.effects.velocity.y -= 0.1 * lines_to_send as f32;
 

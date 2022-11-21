@@ -52,8 +52,8 @@ impl KeyBinds {
                 (glutin::event::VirtualKeyCode::Numpad5, Key::RotateCW),
                 (glutin::event::VirtualKeyCode::NumpadComma, Key::RotateCCW),
                 (glutin::event::VirtualKeyCode::Numpad2, Key::SoftDrop),
-                (glutin::event::VirtualKeyCode::Numpad0, Key::HardDrop),
-                (glutin::event::VirtualKeyCode::NumpadEnter, Key::Swap),
+                (glutin::event::VirtualKeyCode::NumpadEnter, Key::HardDrop),
+                (glutin::event::VirtualKeyCode::Numpad0, Key::Swap),
             ]),
         }
     }

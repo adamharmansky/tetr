@@ -46,6 +46,9 @@ fn main() {
         gl.BlendFunc(gl33::GL_SRC_ALPHA, gl33::GL_ONE_MINUS_SRC_ALPHA);
     }
 
+    let audio = Rc::new(RefCell::new(
+        kira::manager::AudioManager::new(kira::manager::AudioManagerSettings::default()).unwrap(),
+    ));
     let mut gh = graphics::GraphicsHandle::new(gl);
     let roman = resource::ResourceManager::new(String::from("resources")).unwrap();
     let tr = Rc::new(text::TextRenderer::new(&mut gh, &roman).unwrap());
@@ -85,6 +88,7 @@ fn main() {
                                 &roman,
                                 tr.clone(),
                                 game::GameMode::Single,
+                                audio.clone(),
                             ))
                         }
                         Screen::DoubleGame => {
@@ -93,6 +97,7 @@ fn main() {
                                 &roman,
                                 tr.clone(),
                                 game::GameMode::Double,
+                                audio.clone(),
                             ))
                         }
                         Screen::Exit => {

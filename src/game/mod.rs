@@ -1,7 +1,7 @@
 use glam::Mat4;
 use glam::Vec3;
 use rand::prelude::*;
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 mod background;
 mod block;
@@ -14,8 +14,6 @@ use block::Block;
 use board::Board;
 use tetromino::Tetromino;
 use util::BlockPos;
-
-use std::cell::RefCell;
 
 #[derive(Clone, Copy)]
 pub enum KeyTiming {
@@ -46,6 +44,7 @@ impl Game {
         roman: &crate::resource::ResourceManager,
         tr: Rc<crate::text::TextRenderer>,
         mode: GameMode,
+        audio: Rc<RefCell<kira::manager::AudioManager>>,
     ) -> Self {
         let rng = SmallRng::from_entropy();
         let boards = match mode {
@@ -53,8 +52,15 @@ impl Game {
                 let left = Rc::new(RefCell::new(Board::new(
                     keys::KeyBinds::left(),
                     rng.clone(),
+                    audio.clone(),
+                    roman,
                 )));
-                let right = Rc::new(RefCell::new(Board::new(keys::KeyBinds::right(), rng)));
+                let right = Rc::new(RefCell::new(Board::new(
+                    keys::KeyBinds::right(),
+                    rng,
+                    audio.clone(),
+                    roman,
+                )));
                 {
                     left.borrow_mut().victim = Some(right.clone());
                     right.borrow_mut().victim = Some(left.clone());
@@ -64,6 +70,8 @@ impl Game {
             GameMode::Single => vec![Rc::new(RefCell::new(Board::new(
                 keys::KeyBinds::single(),
                 rng,
+                audio.clone(),
+                roman,
             )))],
         };
         Self {

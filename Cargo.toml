@@ -13,3 +13,4 @@ gl33 = "0.2.1"
 json = "0.12.4"
 rand = {version = "0.8.5", features = ["small_rng"]}
 freetype-rs = "0.31.*"
+kira = "0.7.0"

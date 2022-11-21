@@ -24,8 +24,7 @@ impl ScoreHandler {
         cleared: u32,
         piece: tetromino::Shape,
         covered: bool,
-        effects: &mut crate::game::board::effects::BoardEffects,
-    ) -> u32 {
+    ) -> (u32, Option<String>) {
         // a T-spin occurs when a T is placed where it would otherwise be obstructed
         let tspin = if let tetromino::Shape::T = piece {
             covered
@@ -53,63 +52,33 @@ impl ScoreHandler {
         };
 
         match cleared {
-            0 => 0,
-            4 => {
-                effects.info = Some(crate::game::board::effects::InfoText {
-                    text: String::from("TETRIS"),
-                    time: std::time::Instant::now(),
-                });
-                3 + self.combo + b2b_bonus
-            }
+            0 => (0, None),
+            4 => (3 + self.combo + b2b_bonus, Some(String::from("TETRIS"))),
             x => {
                 if tspin {
                     match cleared {
-                        1 => {
-                            effects.info = Some(crate::game::board::effects::InfoText {
-                                text: String::from("T-SPIN SINGLE"),
-                                time: std::time::Instant::now(),
-                            });
-                            2 + self.combo / 2 + b2b_bonus
-                        }
-                        2 => {
-                            effects.info = Some(crate::game::board::effects::InfoText {
-                                text: String::from("T-SPIN DOUBLE"),
-                                time: std::time::Instant::now(),
-                            });
-                            4 + self.combo / 2 + b2b_bonus
-                        }
-                        3 => {
-                            effects.info = Some(crate::game::board::effects::InfoText {
-                                text: String::from("T-SPIN TRIPLE"),
-                                time: std::time::Instant::now(),
-                            });
-                            6 + self.combo / 2 + b2b_bonus
-                        }
-                        _ => 0,
+                        1 => (
+                            2 + self.combo / 2 + b2b_bonus,
+                            Some(String::from("T-SPIN SINGLE")),
+                        ),
+                        2 => (
+                            4 + self.combo / 2 + b2b_bonus,
+                            Some(String::from("T-SPIN DOUBLE")),
+                        ),
+                        3 => (
+                            6 + self.combo / 2 + b2b_bonus,
+                            Some(String::from("T-SPIN TRIPLE")),
+                        ),
+                        _ => (0, None),
                     }
                 } else {
+                    let x = x - 1 + self.combo / 2 + b2b_bonus;
                     match cleared {
-                        1 => {
-                            effects.info = Some(crate::game::board::effects::InfoText {
-                                text: String::from("SINGLE"),
-                                time: std::time::Instant::now(),
-                            });
-                        }
-                        2 => {
-                            effects.info = Some(crate::game::board::effects::InfoText {
-                                text: String::from("DOUBLE"),
-                                time: std::time::Instant::now(),
-                            });
-                        }
-                        3 => {
-                            effects.info = Some(crate::game::board::effects::InfoText {
-                                text: String::from("TRIPLE"),
-                                time: std::time::Instant::now(),
-                            });
-                        }
-                        _ => (),
+                        1 => (x, Some(String::from("SINGLE"))),
+                        2 => (x, Some(String::from("DOUBLE"))),
+                        3 => (x, Some(String::from("TRIPLE"))),
+                        _ => (x, None),
                     }
-                    x - 1 + self.combo / 2 + b2b_bonus
                 }
             }
         }
